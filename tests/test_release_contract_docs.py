@@ -80,11 +80,11 @@ def test_readme_links_the_operations_contract() -> None:
 def test_readme_leads_with_the_real_end_to_end_demo() -> None:
     """A cold reader reaches a runnable result before the long explanation."""
     readme = _read("README.md")
-    try_it = readme.index("## Try it in 60 seconds")
-    story = readme.index("### The problem, as a story")
+    try_it = readme.index("\n## Try it\n")
+    how_it_works = readme.index("\n## How it works\n")
 
-    assert try_it < story
-    assert "bash examples/run_loop.sh" in readme[try_it:story]
+    assert try_it < how_it_works
+    assert "bash examples/run_loop.sh" in readme[try_it:how_it_works]
 
 
 def test_release_copy_stays_true_before_and_after_registry_propagation() -> None:
@@ -146,7 +146,7 @@ def test_lockfile_resolves_a_supported_core_release() -> None:
 
 def test_quickstart_does_not_freeze_a_stale_test_count() -> None:
     quickstart = _read("docs/QUICKSTART.md")
-    assert "`uv run poe gate` | ~20 s, full test suite" in quickstart
+    assert "`uv run poe gate` | about 3.5 min, full test suite" in quickstart
     assert not re.search(r"`uv run poe gate` \|[^\n]*\b\d+ tests\b", quickstart)
 
 
@@ -172,9 +172,13 @@ def test_operations_contract_explains_the_one_commit_snapshot_boundary() -> None
 
 @pytest.mark.parametrize("document", ["README.md", "docs/QUICKSTART.md"])
 def test_runnable_docs_never_edit_the_retired_legacy_snapshot_sidecar(document: str) -> None:
-    copy = _read(document)
-    assert "src/catalog_idx/state.json" not in copy
-    assert "src/catalog_idx/snapshots/" in copy
+    assert "src/catalog_idx/state.json" not in _read(document)
+
+
+def test_full_walkthrough_names_the_current_snapshot_directory() -> None:
+    """The saved-index walkthrough lives in QUICKSTART; the README links to it."""
+    assert "src/catalog_idx/snapshots/" in _read("docs/QUICKSTART.md")
+    assert "docs/QUICKSTART.md" in _read("README.md")
 
 
 @pytest.mark.parametrize("document", ["README.md", "docs/QUICKSTART.md"])
@@ -186,9 +190,10 @@ def test_cache_docs_describe_active_as_a_pointer_file(document: str) -> None:
 
 
 def test_budget_copy_distinguishes_admission_from_native_rss_enforcement() -> None:
-    readme = _read("README.md")
-    assert "MemoryManager" in readme
-    assert "not an enforcement boundary for allocations inside FAISS" in readme
+    architecture = " ".join(_read("docs/ARCHITECTURE.md").split())
+    assert "MemoryManager" in architecture
+    assert "not an enforcement boundary for allocations inside FAISS" in architecture
+    assert "hard memory limit" in _read("README.md")
 
 
 def test_operations_contract_links_a_repeatable_benchmark() -> None:
@@ -198,9 +203,9 @@ def test_operations_contract_links_a_repeatable_benchmark() -> None:
 
 
 def test_settings_copy_matches_host_environment_behavior() -> None:
-    readme = _read("README.md")
-    assert "rejects unknown fields" not in readme
-    assert "ignores unrelated host variables" in readme
+    configuration = _read("docs/CONFIGURATION.md")
+    assert "rejects unknown fields" not in configuration + _read("README.md")
+    assert "ignores unrelated host variables" in configuration
 
 
 @pytest.mark.parametrize("doc", ["README.md", "docs/QUICKSTART.md"])
@@ -223,12 +228,18 @@ def test_docs_show_the_canonical_code_prefix_on_every_documented_refusal(doc: st
 
 
 def _documented_settings() -> set[str]:
-    """Setting names in the README configuration table's first column."""
-    rows = re.findall(r"^\|\s*`(\w+)`\s*\|\s*`([A-Z_]+)`\s*\|", _read("README.md"), re.MULTILINE)
+    """Setting names in the configuration reference table's first column."""
+    rows = re.findall(
+        r"^\|\s*`(\w+)`\s*\|\s*`([A-Z_]+)`\s*\|", _read("docs/CONFIGURATION.md"), re.MULTILINE
+    )
     return {name for name, _env in rows}
 
 
-def test_readme_documents_every_setting() -> None:
+def test_readme_links_the_configuration_reference() -> None:
+    assert "docs/CONFIGURATION.md" in _read("README.md")
+
+
+def test_configuration_reference_documents_every_setting() -> None:
     """Drift lock: the config table must cover the WHOLE settings object, not a subset.
 
     The bug this exists to prevent: the table documented 11 of 15 fields, so the four
@@ -242,7 +253,7 @@ def test_readme_documents_every_setting() -> None:
     assert _documented_settings() == set(EdgeProcSettings.model_fields)
 
 
-def test_readme_documents_each_setting_with_its_real_env_var() -> None:
+def test_configuration_reference_documents_each_setting_with_its_real_env_var() -> None:
     """A documented env var that the settings object does not bind is worse than absent."""
     from edgeproc.core.settings import EdgeProcSettings  # noqa: PLC0415
 
@@ -250,7 +261,9 @@ def test_readme_documents_each_setting_with_its_real_env_var() -> None:
         name: str(field.validation_alias or f"EDGEPROC_{name.upper()}")
         for name, field in EdgeProcSettings.model_fields.items()
     }
-    rows = re.findall(r"^\|\s*`(\w+)`\s*\|\s*`([A-Z_]+)`\s*\|", _read("README.md"), re.MULTILINE)
+    rows = re.findall(
+        r"^\|\s*`(\w+)`\s*\|\s*`([A-Z_]+)`\s*\|", _read("docs/CONFIGURATION.md"), re.MULTILINE
+    )
     assert dict(rows) == expected
 
 
@@ -336,7 +349,7 @@ def test_readme_defers_percentile_figures_to_the_operations_contract() -> None:
     )
 
 
-@pytest.mark.parametrize("document", ["README.md", "docs/QUICKSTART.md"])
+@pytest.mark.parametrize("document", ["docs/GETTING_STARTED.md", "docs/QUICKSTART.md"])
 def test_local_gate_claim_separates_the_complete_dagger_graph(document: str) -> None:
     """A green product gate is not a substitute for the complete hosted graph."""
     copy = " ".join(_read(document).split())
@@ -372,7 +385,7 @@ def test_architecture_inventory_names_every_shipped_cli_command() -> None:
     assert _documented_cli_commands() == _registered_cli_commands()
 
 
-@pytest.mark.parametrize("document", ["README.md", "docs/OPERATIONS.md", "docs/ARCHITECTURE.md"])
+@pytest.mark.parametrize("document", ["docs/OPERATIONS.md", "docs/ARCHITECTURE.md"])
 def test_persistence_docs_name_the_stable_read_only_lock_free_path(document: str) -> None:
     """Immutable consumers should not be told that every load takes the writer lock."""
     assert "Stable read-only loads do not take that lock" in " ".join(_read(document).split())

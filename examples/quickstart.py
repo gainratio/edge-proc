@@ -1,6 +1,6 @@
 """End-to-end EdgeProc demo: read ``catalog.json``, persist a saved index AND the model.
 
-The README quickstart shows the one-line ``LocalVecRuntime.from_texts`` path. This
+``docs/QUICKSTART.md`` shows the one-line ``LocalVecRuntime.from_texts`` path. This
 file is its explicit cousin — the registry wiring made fully visible — and the
 producer step for ``run_loop.sh``: it reads ``catalog.json``, encodes each entry
 with ``TextEncoder``, builds a FAISS index, and saves it to ``--out`` (default

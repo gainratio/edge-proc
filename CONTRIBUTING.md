@@ -6,6 +6,9 @@ of all sizes are welcome: bug reports, docs fixes, new runtimes, and substrate h
 
 ## TL;DR
 
+New here? [Getting started for developers](docs/GETTING_STARTED.md) walks you from a fresh
+clone to a green local build and your first change, with the time each step takes.
+
 ```bash
 git clone https://github.com/hseshadr/edge-proc.git
 cd edge-proc
@@ -25,7 +28,7 @@ uv sync --all-extras
 ```
 
 `edgeproc-core` installs from [PyPI](https://pypi.org/project/edgeproc-core/)
-(`edgeproc-core>=0.2.1`), so `uv sync` fetches it with no sibling checkout.
+(`edgeproc-core>=0.4.3`), so `uv sync` fetches it with no sibling checkout.
 Co-developing `edgeproc-core` alongside EdgeProc? Clone it next to this repo and
 add the path override commented in `pyproject.toml`.
 

@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "edge-proc"
 dynamic = ["version"]
-description = "For Python apps that ship data to devices: each one checks it's genuine, downloads only changes, and searches offline."
+description = "A Python library for sending data files to many devices: each device checks they came from you, downloads only what changed, and can search them offline."
 readme = "README.md"
 requires-python = ">=3.13"
 license = { text = "MIT" }

@@ -4,6 +4,20 @@ All notable changes to **edge-proc**. Newest first; we follow [SemVer](https://s
 
 ## [Unreleased]
 
+### Documentation
+
+- **The README is rewritten in plain English.** It now opens with what EdgeProc is and a
+  runnable example with real output, then how it works, how it relates to `edgeproc-core`,
+  `@edgeproc/browser`, edge-reco and privacy-core, and its limits. Technical material moved
+  out, not away: the configuration table to the new `docs/CONFIGURATION.md`; the trust
+  model, key rotation, router and budget notes to `docs/ARCHITECTURE.md`; the Python API
+  example to `docs/QUICKSTART.md`. New `docs/GETTING_STARTED.md` takes a developer from a
+  fresh clone to a green build and a first change. The README contract tests now pin the new
+  section order and reject internal jargon. The package description changes to match the
+  README's first line; PyPI shows it from the next release.
+- **`docs/QUICKSTART.md` no longer claims `poe gate` takes ~20 s.** It took about
+  3.5 minutes from a fresh clone.
+
 ### Changed
 
 - **The release candidate is back to the fleet's shell-free shape: checkout, Dagger,

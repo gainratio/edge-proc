@@ -63,7 +63,7 @@ class LocalVecRuntime:
     ) -> LocalVecRuntime:
         """Encode ``catalog`` (``{id: text}``), build a FAISS index + BM25, return a runtime.
 
-        The one-call wiring path the README quickstart uses. Use the explicit
+        The one-call wiring path ``docs/QUICKSTART.md`` uses. Use the explicit
         constructor when you already have an index (e.g. loaded from disk) or want a
         different ``VectorIndex`` implementation.
         """

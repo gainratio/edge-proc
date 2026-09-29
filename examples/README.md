@@ -10,5 +10,6 @@ bash run_loop.sh
 
 You'll see five stages of output ending in a routed `SEARCH` result. The
 heavier registry-wiring + saved-index Python lives in
-[`quickstart.py`](./quickstart.py); the README's quickstart is the one-line
+[`quickstart.py`](./quickstart.py); the Python example in
+[`docs/QUICKSTART.md`](../docs/QUICKSTART.md#use-it-from-python) is the one-line
 `LocalVecRuntime.from_texts` variant of the same thing.

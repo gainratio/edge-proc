@@ -100,14 +100,24 @@ def test_should_route_scheduled_dependency_audit_with_exact_caller_identity() ->
     )
 
 
-#: The only shape a dispatched release tag may take before any shell sees it.
-TAG_GUARD = '[[ "$TAG" =~ ^v[0-9]+\\.[0-9]+\\.[0-9]+$ ]] || exit 1'
+#: The release invocation, as `dagger/dagger-for-github` args. The action pastes args into
+#: its bash script, so every value is a double-quoted environment variable: bash expands
+#: it as one literal word and never parses it as code. No `${{ }}` expression appears.
+RELEASE_ARGS = (
+    'release-candidate --tag="$TAG" --commit-sha="$GITHUB_SHA" '
+    "--github-token=env:GITHUB_TOKEN export --path=release"
+)
 
-#: The release invocation: every value is a quoted environment variable, never an
-#: expression GitHub pastes into the script text.
-RELEASE_CALL = (
-    'dagger --progress plain call release-candidate --tag="$TAG" '
-    '--commit-sha="$GITHUB_SHA" --github-token=env:GITHUB_TOKEN export --path=release'
+#: Dispatch tags an attacker could type; each must reach Dagger as one inert argument.
+HOSTILE_TAGS = (
+    "v0.5.0",
+    "",
+    "v0.5.0 --commit-sha=0",
+    "v0.5.0;touch pwned",
+    "$(touch pwned)",
+    "`touch pwned`",
+    "v0.5.0\ntouch pwned",
+    'v0.5.0" ; touch pwned ; "',
 )
 
 #: Expression contexts an outside actor can shape: dispatch inputs, event payloads
@@ -139,90 +149,67 @@ def _injectable_sinks(directory: Path) -> list[str]:
     ]
 
 
-def _run_tag_guard(script: str, tag: str) -> int:
+def _expand_action_args(args: str, tag: str, cwd: Path) -> list[str]:
+    """Expand args exactly as dagger-for-github's final bash step does, but print them."""
     bash = shutil.which("bash")
     assert bash is not None
+    env = {"TAG": tag, "GITHUB_SHA": "a" * 40, "PATH": "/usr/bin:/bin"}
     result = subprocess.run(  # noqa: S603
-        [bash, "-c", script], env={"TAG": tag}, capture_output=True, check=False
+        [bash, "-c", f"printf '%s\\0' {args}"], env=env, cwd=cwd, capture_output=True, check=True
     )
-    return result.returncode
+    return result.stdout.decode().split("\0")[:-1]
+
+
+def _release_steps() -> list[dict[str, object]]:
+    return _steps(_job(_workflow("release-candidate.yml"), "candidate"))
 
 
 def test_should_make_release_manual_and_dagger_proven() -> None:
     document = _workflow("release-candidate.yml")
     triggers = _mapping(document.get("on"))
-    candidate = _job(document, "candidate")
-    steps = _steps(candidate)
+    steps = _release_steps()
     assert set(triggers) == {"workflow_dispatch"}
-    assert [_action(step) for step in steps] == [
-        CHECKOUT_ACTION,
-        "",
-        DAGGER_ACTION,
-        "",
-        UPLOAD_ACTION,
-    ]
-    assert all(PINNED.fullmatch(str(step.get("uses"))) for step in steps if "uses" in step)
+    assert [_action(step) for step in steps] == [CHECKOUT_ACTION, DAGGER_ACTION, UPLOAD_ACTION]
+    assert all(PINNED.fullmatch(str(step.get("uses"))) for step in steps)
     checkout = _mapping(steps[0].get("with"))
     assert "ref" not in checkout
-    assert "--workflow-run-id" not in RELEASE_CALL
-    assert "--run-attempt" not in RELEASE_CALL
-    upload = _mapping(steps[4].get("with"))
+    assert checkout.get("persist-credentials") is False
+    upload = _mapping(steps[2].get("with"))
     assert upload.get("name") == "edge-proc-${{ github.sha }}"
 
 
-def test_should_validate_the_dispatched_tag_before_any_other_shell_runs() -> None:
-    # Given the release workflow
-    steps = _steps(_job(_workflow("release-candidate.yml"), "candidate"))
-    guard = steps[1]
-    # Then the tag arrives only through the environment and is checked on its own
-    assert _mapping(guard.get("env")) == {"TAG": "${{ inputs.tag }}"}
-    assert guard.get("shell") == "bash"
-    assert str(guard.get("run")).strip() == TAG_GUARD
-
-
-def test_should_install_dagger_with_the_pinned_action_but_never_let_it_run_args() -> None:
-    # Given the Dagger step of the release workflow
-    install = _steps(_job(_workflow("release-candidate.yml"), "candidate"))[2]
-    # Then the action only installs the pinned CLI: it receives no command text
-    assert _mapping(install.get("with")) == {"version": "0.21.8"}
-    assert "env" not in install
+def test_should_run_no_shell_step_in_the_release_candidate() -> None:
+    # Given the release workflow (central fleet policy: shell-step, candidate-order)
+    # Then no step runs repository-authored shell; Dagger is the only executor
+    assert [step for step in _release_steps() if "run" in step] == []
 
 
 def test_should_call_the_release_graph_with_only_quoted_environment_values() -> None:
-    # Given the release invocation step
-    release = _steps(_job(_workflow("release-candidate.yml"), "candidate"))[3]
-    # Then the tag is the validated environment value and nothing is interpolated
+    # Given the Dagger step of the release workflow
+    release = _release_steps()[1]
+    # Then the tag arrives only through the environment and the args hold no expression
     assert _mapping(release.get("env")) == {
         "TAG": "${{ inputs.tag }}",
         "GITHUB_TOKEN": "${{ github.token }}",
     }
-    assert release.get("shell") == "bash"
-    assert str(release.get("run")).strip() == RELEASE_CALL
-    assert "${{" not in str(release.get("run"))
+    invocation = _mapping(release.get("with"))
+    assert invocation == {"version": "0.21.8", "verb": "call", "args": RELEASE_ARGS}
+    assert "--workflow-run-id" not in RELEASE_ARGS
+    assert "--run-attempt" not in RELEASE_ARGS
 
 
-@pytest.mark.parametrize("tag", ["v0.5.0", "v10.20.30"])
-def test_should_accept_a_plain_semver_release_tag(tag: str) -> None:
-    assert _run_tag_guard(TAG_GUARD, tag) == 0
-
-
-@pytest.mark.parametrize(
-    "tag",
-    [
-        "",
-        "0.5.0",
-        "v0.5",
-        "v0.5.0-rc1",
-        "v0.5.0 --commit-sha=0",
-        "v0.5.0;touch pwned",
-        "$(touch pwned)",
-        "`touch pwned`",
-        "v0.5.0\ntouch pwned",
-        "v0.5.0\n",
-    ],
-)
-def test_should_reject_any_tag_that_is_not_a_plain_semver_release(tag: str) -> None:
-    assert _run_tag_guard(TAG_GUARD, tag) != 0
+@pytest.mark.parametrize("tag", HOSTILE_TAGS)
+def test_should_pass_any_dispatched_tag_to_dagger_as_one_inert_argument(
+    tag: str, tmp_path: Path
+) -> None:
+    # Given the release args expanded the way the pinned action's bash expands them
+    args = str(_mapping(_release_steps()[1].get("with")).get("args"))
+    # When a hostile tag is dispatched
+    words = _expand_action_args(args, tag, tmp_path)
+    # Then Dagger receives the tag verbatim as one argument and no command ran
+    assert words[:2] == ["release-candidate", f"--tag={tag}"]
+    assert words[2] == "--commit-sha=" + "a" * 40
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_should_keep_untrusted_expressions_out_of_every_workflow_shell() -> None:

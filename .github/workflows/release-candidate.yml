@@ -25,27 +25,19 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      # The dispatched tag is attacker-shapeable text. It reaches shell only as the
-      # TAG environment variable, and only after this step proves it is a plain
-      # vX.Y.Z; no `${{ inputs.* }}` expression is ever pasted into script text.
-      - name: Validate release tag
-        shell: bash
-        env:
-          TAG: ${{ inputs.tag }}
-        run: |
-          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
-      # Install only. dagger-for-github pastes its `args` into bash unquoted, so
-      # the release call runs in the next step with every value quoted.
+      # The dispatched tag is attacker-shapeable text. It never appears as a
+      # `${{ }}` expression: it reaches the step only as the TAG environment
+      # variable. dagger-for-github pastes `args` into bash, so every value there
+      # is a double-quoted variable that bash expands as one inert word. Dagger
+      # then rejects any tag that differs from the metadata-derived release tag.
       - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8.4.1
-        with:
-          version: "0.21.8"
-      - name: Build and verify release candidate
-        shell: bash
         env:
           TAG: ${{ inputs.tag }}
           GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          dagger --progress plain call release-candidate --tag="$TAG" --commit-sha="$GITHUB_SHA" --github-token=env:GITHUB_TOKEN export --path=release
+        with:
+          version: "0.21.8"
+          verb: call
+          args: release-candidate --tag="$TAG" --commit-sha="$GITHUB_SHA" --github-token=env:GITHUB_TOKEN export --path=release
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: edge-proc-${{ github.sha }}

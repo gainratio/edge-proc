@@ -17,7 +17,7 @@ UV_IMAGE: Final = (
 )
 REPOSITORY: Final = "hseshadr/edge-proc"
 PROJECT_NAME: Final = "edge-proc"
-CENTRAL_MODULE_SHA: Final = "95c72573fc11ea6732abb7f7fe8b59c7d245d927"
+CENTRAL_MODULE_SHA: Final = "9d491851fc5c65ad4a388ed2dd7bb4def4e1f007"
 SOURCE_EXCLUDES: Final = [
     ".git",
     ".venv",

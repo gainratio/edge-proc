@@ -11,7 +11,7 @@ connection): about **70 seconds of machine time** and about **1.4 GB of disk**.
 | | measured |
 |---|---|
 | `uv sync --all-extras` | 5.5 s, 75 packages, 947 MB venv (torch + FAISS dominate) |
-| `uv run poe gate` | ~20 s, full test suite |
+| `uv run poe gate` | about 3.5 min, full test suite |
 | step 2, first run | 45 s — the one-time `all-MiniLM-L6-v2` download is 87 MB of it |
 | steps 3–7 | 21 s — publish and sync move that 87 MB model too |
 
@@ -218,6 +218,47 @@ uv run edgeproc sync --base-url origin --cache-dir cache2 --pretty
 - Read [ARCHITECTURE.md](ARCHITECTURE.md) for the module map and the security model.
 - See [`examples/`](../examples/) for a registry-wired in-process version that doesn't use the CLI.
 - Prefer pictures? [ARCHITECTURE.md](ARCHITECTURE.md) draws the same loop as three diagrams.
+
+## Use it from Python
+
+The same search, in-process, without the CLI. `model_path` is the library-level equivalent of
+`--model-path`; without it `TextEncoder()` raises rather than reaching for the hub.
+
+```python
+import asyncio
+from pathlib import Path
+
+from edgeproc import EdgeProc, PrivacyMode, RuntimeRegistry, Task, TaskKind
+from edgeproc.localvec.encoder import TextEncoder
+from edgeproc.localvec.runtime import LocalVecRuntime
+
+CATALOG = {"p1": "red running shoes", "p2": "waterproof hiking boots", "p3": "trail sneakers"}
+
+
+async def main() -> None:
+    encoder = TextEncoder(model_path=Path("materialized/model"))
+    runtime = await LocalVecRuntime.from_texts(CATALOG, encoder=encoder)
+    registry = RuntimeRegistry(); registry.register(runtime)
+    result = await EdgeProc(registry=registry).run(
+        Task(kind=TaskKind.SEARCH, payload={"query": "shoes for running"}, privacy_mode=PrivacyMode.LOCAL_ONLY)
+    )
+    for entity_id, distance in result.payload["results"]:
+        print(f"  {entity_id}  {CATALOG[entity_id]:<24} distance={distance:.3f}")
+
+
+asyncio.run(main())
+```
+
+```text
+  p1  red running shoes        distance=0.219
+  p3  trail sneakers           distance=0.374
+  p2  waterproof hiking boots  distance=0.556
+```
+
+Swap `TaskKind.SEARCH` for `TaskKind.EMBED` (raw vectors) or `TaskKind.RANK` (keyword +
+meaning-based ranking combined).
+
+This needs a model directory at `materialized/model`, which step 4 writes.
 
 ## Going over the wire
 

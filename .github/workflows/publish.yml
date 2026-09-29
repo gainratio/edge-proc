@@ -21,6 +21,23 @@ jobs:
       contents: read
       id-token: write
     steps:
+      # `head_branch == default_branch` above is satisfied by a dispatch on a
+      # TAG named `main`, so it cannot bind the candidate to main on its own.
+      # Before any artifact is touched, the central hseshadr/ci lineage function
+      # (pinned at a literal commit, hseshadr/ci#49) proves from GitHub's run
+      # records that the triggering run is a successful dispatch of
+      # release-candidate.yml here for exactly HEAD_SHA, and that main contains
+      # HEAD_SHA. Event values reach the action's bash only as quoted env vars.
+      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8.4.1
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        with:
+          version: "0.21.8"
+          verb: call
+          module: github.com/hseshadr/ci/modules/portfolio-foundation@3de1c4bef2558fd6610b6dda1504b657de7a954d
+          args: release-lineage --github-token=env:GH_TOKEN --repository="$GITHUB_REPOSITORY" --run-id="$RUN_ID" --head-sha="$HEAD_SHA" --publish-run-id="$GITHUB_RUN_ID"
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: edge-proc-${{ github.event.workflow_run.head_sha }}

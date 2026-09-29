@@ -421,8 +421,8 @@ def test_release_runbook_keeps_build_code_outside_the_oidc_job() -> None:
 
     assert "Dagger builds and validates in an unprivileged job" in release
     assert (
-        "OIDC-bearing job only invokes pinned artifact download and official PyPI publish"
-        in release
+        "OIDC-bearing job only invokes the central lineage proof, pinned artifact download, and "
+        "official PyPI publish" in release
     )
 
 

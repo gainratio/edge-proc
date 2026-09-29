@@ -254,15 +254,60 @@ def test_should_keep_oidc_publisher_source_free_and_shell_free() -> None:
         "contents": "read",
         "id-token": "write",
     }
-    assert [_action(step) for step in steps] == [DOWNLOAD_ACTION, PUBLISH_ACTION]
+    # Lineage is proven by the central Dagger function; no step runs repository shell,
+    # and nothing checks out or builds source.
+    assert [_action(step) for step in steps] == [DAGGER_ACTION, DOWNLOAD_ACTION, PUBLISH_ACTION]
     assert all("run" not in step for step in steps)
-    download = _mapping(steps[0].get("with"))
+    download = _mapping(steps[1].get("with"))
     assert download.get("name") == "edge-proc-${{ github.event.workflow_run.head_sha }}"
     assert download.get("run-id") == "${{ github.event.workflow_run.id }}"
     assert download.get("github-token") == "${{ github.token }}"
-    settings = _mapping(steps[1].get("with"))
+    settings = _mapping(steps[2].get("with"))
     assert settings.get("packages-dir") == "release/dist"
     assert settings.get("attestations") is True
+
+
+#: The central lineage proof (hseshadr/ci#49), pinned at a literal hseshadr/ci commit.
+LINEAGE_MODULE = re.compile(r"^github\.com/hseshadr/ci/modules/portfolio-foundation@[0-9a-f]{40}$")
+#: Exact args: every value is a quoted env var bound to the triggering run, so a
+#: hard-coded run id or SHA cannot make the proof about a different run.
+LINEAGE_ARGS = (
+    'release-lineage --github-token=env:GH_TOKEN --repository="$GITHUB_REPOSITORY" '
+    '--run-id="$RUN_ID" --head-sha="$HEAD_SHA" --publish-run-id="$GITHUB_RUN_ID"'
+)
+
+
+def test_should_prove_the_candidate_lineage_in_dagger_before_touching_any_artifact() -> None:
+    # Given the first publish step. The job `if` (head_branch == default_branch) is
+    # satisfied by a dispatch on a TAG named `main`, so this proof must run first.
+    lineage = _steps(_job(_workflow("publish.yml"), "publish"))[0]
+    invocation = _mapping(lineage.get("with"))
+
+    # Then it is the central release-lineage call, fed only through quoted env values
+    assert _action(lineage) == DAGGER_ACTION
+    assert _mapping(lineage.get("env")) == {
+        "GH_TOKEN": "${{ github.token }}",
+        "RUN_ID": "${{ github.event.workflow_run.id }}",
+        "HEAD_SHA": "${{ github.event.workflow_run.head_sha }}",
+    }
+    assert LINEAGE_MODULE.fullmatch(str(invocation.pop("module", "")))
+    assert invocation == {"version": "0.21.8", "verb": "call", "args": LINEAGE_ARGS}
+
+
+def test_should_paste_no_expression_into_any_publisher_dagger_input() -> None:
+    # Given every Dagger step of the publisher (the action pastes these into bash)
+    steps = _steps(_job(_workflow("publish.yml"), "publish"))
+    pasted = [
+        str(value)
+        for step in steps
+        if _action(step) == DAGGER_ACTION
+        for key, value in _mapping(step.get("with")).items()
+        if key != "module"
+    ]
+
+    # Then there is one, and no `${{ }}` expression reaches script text
+    assert pasted
+    assert [value for value in pasted if "${{" in value] == []
 
 
 @pytest.mark.parametrize("workflow", ["ci.yml", "dagger-shadow.yml"])

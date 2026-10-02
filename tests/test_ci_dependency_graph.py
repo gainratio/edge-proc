@@ -38,6 +38,6 @@ def test_should_lock_audit_and_build_tools_used_by_dagger() -> None:
     build_requirements = project["build-system"]["requires"]
 
     # Then
-    assert build_requirements == ["hatchling==1.32.3"]
-    assert versions["hatchling"] == "1.32.3"
+    assert build_requirements == ["hatchling==1.32.4"]
+    assert versions["hatchling"] == "1.32.4"
     assert versions["pip-audit"] == "2.10.1"

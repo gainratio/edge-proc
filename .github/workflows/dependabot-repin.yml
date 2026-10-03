@@ -13,8 +13,9 @@
 # - Executes no code from the pull request: the tool comes from the base commit and only
 #   reads uv.lock and two text files from the head checkout.
 # - Commits through createCommitOnBranch bound to the head SHA, so a concurrent
-#   Dependabot push wins. A GITHUB_TOKEN commit starts no CI run, so the job dispatches
-#   Dagger on the branch (workflow_dispatch always runs) and cancels the stale run.
+#   Dependabot push wins, then cancels CI on the superseded commit. GitHub puts the
+#   pull_request run for a GITHUB_TOKEN commit in an approval-required state: one
+#   "Approve workflows to run" click starts the required Dagger check.
 name: Dependabot re-pin
 on:
   pull_request:
@@ -34,7 +35,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write # commit the re-pinned literals to the Dependabot branch
-      actions: write # dispatch Dagger on the new commit and cancel the superseded run
+      actions: write # cancel the run on the superseded commit
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -61,7 +62,6 @@ jobs:
           python3 "$tool" commit-request --root head --repository "$REPOSITORY" \
             --branch "$BRANCH" --head-sha "$HEAD_SHA" "${changed[@]}" > request.json
           gh api graphql --input request.json
-          gh workflow run dagger.yml --repo "$REPOSITORY" --ref "$BRANCH"
           gh run list --repo "$REPOSITORY" --workflow dagger.yml --commit "$HEAD_SHA" \
             --json databaseId,status --jq '.[] | select(.status != "completed") | .databaseId' \
             | xargs -r -n1 gh run cancel --repo "$REPOSITORY"

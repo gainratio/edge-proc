@@ -10,10 +10,14 @@
 # - Triggered by `pull_request` only. Dependabot runs get a read-only GITHUB_TOKEN and
 #   no Actions secrets by default; `permissions` raises this one job's token. No secrets.
 # - Runs only when the PR author is dependabot[bot] and the branch lives in this repo.
-# - Executes no code from the pull request: the tool comes from the base commit and only
-#   reads uv.lock and two text files from the head checkout.
+# - Executes no code from the pull request: the checkout is the base commit, so the
+#   Dagger module and scripts/repin_locked_tools.py are the reviewed versions. The tool
+#   fetches only uv.lock and two text files of the head, as text, through the REST API.
+# - Fleet policy shape (hseshadr/ci fleet_policy.py): checkout then Dagger, no run step.
+#   Event values reach Dagger only through the step environment, never pasted in args.
 # - Commits through createCommitOnBranch bound to the head SHA, so a concurrent
-#   Dependabot push wins, then cancels CI on the superseded commit. GitHub puts the
+#   Dependabot push wins, then cancels CI on the superseded commit (Dagger function
+#   repin-dependabot). GitHub puts the
 #   pull_request run for a GITHUB_TOKEN commit in an approval-required state: one
 #   "Approve workflows to run" click starts the required Dagger check.
 name: Dependabot re-pin
@@ -40,28 +44,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.base.sha }}
-          path: base
           persist-credentials: false
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          path: head
-          persist-credentials: false
-      - env:
-          BRANCH: ${{ github.head_ref }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          REPOSITORY: ${{ github.repository }}
+      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8.4.1
+        env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          tool=base/scripts/repin_locked_tools.py
-          mapfile -t changed < <(python3 "$tool" rewrite --root head)
-          if [ "${#changed[@]}" -eq 0 ] || [ -z "${changed[0]}" ]; then
-            echo "literals already match uv.lock; nothing to commit"
-            exit 0
-          fi
-          python3 "$tool" commit-request --root head --repository "$REPOSITORY" \
-            --branch "$BRANCH" --head-sha "$HEAD_SHA" "${changed[@]}" > request.json
-          gh api graphql --input request.json
-          gh run list --repo "$REPOSITORY" --workflow dagger.yml --commit "$HEAD_SHA" \
-            --json databaseId,status --jq '.[] | select(.status != "completed") | .databaseId' \
-            | xargs -r -n1 gh run cancel --repo "$REPOSITORY"
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        with:
+          version: "0.21.8"
+          verb: call
+          args: repin-dependabot --github-token=env:GH_TOKEN --pr-number="$PR_NUMBER"

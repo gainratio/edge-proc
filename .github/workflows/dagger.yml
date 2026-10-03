@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Lets dependabot-repin.yml start CI on its own commit: a GITHUB_TOKEN push creates
+  # no pull_request run, but a dispatch always runs.
+  workflow_dispatch:
 
 permissions:
   contents: read

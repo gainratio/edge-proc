@@ -181,9 +181,9 @@ exclude_lines = [
 fail_under = 90.0
 
 [tool.poe.tasks]
-lint = "ruff check edgeproc/ tests/ scripts/release_contract.py scripts/gen_keyring_vectors.py"
-fmt-check = "ruff format --check edgeproc/ tests/ scripts/release_contract.py scripts/gen_keyring_vectors.py"
-fmt = "ruff format edgeproc/ tests/ scripts/release_contract.py scripts/gen_keyring_vectors.py"
+lint = "ruff check edgeproc/ tests/ scripts/release_contract.py scripts/gen_keyring_vectors.py scripts/repin_locked_tools.py"
+fmt-check = "ruff format --check edgeproc/ tests/ scripts/release_contract.py scripts/gen_keyring_vectors.py scripts/repin_locked_tools.py"
+fmt = "ruff format edgeproc/ tests/ scripts/release_contract.py scripts/gen_keyring_vectors.py scripts/repin_locked_tools.py"
 complexity = "xenon --max-absolute A --max-modules A --max-average A edgeproc/"
 test = "pytest"
 # `gate` mirrors CI exactly (lint + format-check + typecheck + complexity + test).
@@ -198,4 +198,4 @@ mutants = "python scripts/mutation_harness.py"
 # no MYPYPATH needed. (mypy refuses a MYPYPATH that points into site-packages, which
 # is exactly what the old __file__-derived dance produced under a non-editable install.)
 [tool.poe.tasks.typecheck]
-cmd = "mypy --strict edgeproc/ scripts/release_contract.py scripts/gen_keyring_vectors.py"
+cmd = "mypy --strict edgeproc/ scripts/release_contract.py scripts/gen_keyring_vectors.py scripts/repin_locked_tools.py"

@@ -112,6 +112,17 @@ class EdgeProc:
         )
     # fmt: on
 
+    @function(cache="never")  # type: ignore[call-overload,untyped-decorator]  # SDK stub gap
+    async def repin_dependabot(self, github_token: dagger.Secret, pr_number: int) -> str:
+        """Copy uv.lock tool versions into the literals of one Dependabot uv PR."""
+        tool = self.source.file("scripts/repin_locked_tools.py")
+        command = ["python", "/opt/repin/repin_locked_tools.py", "run"]
+        command += ["--repository", REPOSITORY, "--pr", str(pr_number)]
+        container = dag.container().from_(PYTHON_IMAGE)
+        container = container.with_file("/opt/repin/repin_locked_tools.py", tool)
+        container = container.with_secret_variable("GH_TOKEN", github_token)
+        return await container.with_user("65532:65532").with_exec(command).stdout()
+
     @function
     async def verify_candidate(
         self,

@@ -331,27 +331,43 @@ def test_should_trigger_ci_only_on_push_and_pull_request() -> None:
     assert set(triggers) == {"push", "pull_request"}
 
 
-def test_should_repin_only_same_repository_dependabot_uv_prs_without_running_their_code() -> None:
+REPIN_ARGS = 'repin-dependabot --github-token=env:GH_TOKEN --pr-number="$PR_NUMBER"'
+
+
+def test_should_repin_only_same_repository_dependabot_uv_prs_through_dagger() -> None:
     # Given
     document = _workflow("dependabot-repin.yml")
     job = _job(document, "repin")
     steps = _steps(job)
 
     # When
-    refs = [_mapping(step.get("with")).get("ref") for step in steps if _action(step)]
-    script = str(steps[-1].get("run"))
+    checkout = _mapping(steps[0].get("with"))
+    repin = steps[-1]
 
-    # Then
+    # Then: the fleet policy's ingress shape (checkout then Dagger, no run step), with
+    # the base commit's module and tool doing the work so no pull-request code runs.
     assert set(_mapping(document.get("on"))) == {"pull_request"}
     assert document.get("permissions") == {}
     assert list(_mapping(document.get("jobs"))) == ["repin"]
     assert str(job.get("if")).strip() == REPIN_GUARD
     assert job.get("permissions") == {"contents": "write", "actions": "write"}
-    assert refs == [
-        "${{ github.event.pull_request.base.sha }}",
-        "${{ github.event.pull_request.head.sha }}",
-    ]
-    assert "tool=base/scripts/repin_locked_tools.py" in script
-    assert "gh workflow run" not in script
-    assert "gh run cancel" in script
-    assert not [word for word in ("uv run", "uv sync", "pip ", "head/scripts") if word in script]
+    assert [_action(step) for step in steps] == [CHECKOUT_ACTION, DAGGER_ACTION]
+    assert not [step for step in steps if "run" in step]
+    assert checkout == {
+        "ref": "${{ github.event.pull_request.base.sha }}",
+        "persist-credentials": False,
+    }
+    assert _mapping(repin.get("env")) == {
+        "GH_TOKEN": "${{ github.token }}",
+        "PR_NUMBER": "${{ github.event.pull_request.number }}",
+    }
+    assert _mapping(repin.get("with")) == {"version": "0.21.8", "verb": "call", "args": REPIN_ARGS}
+
+
+def test_should_expose_the_repin_graph_with_a_typed_token() -> None:
+    # Given
+    module = (ROOT / ".dagger/src/edge_proc/main.py").read_text(encoding="utf-8")
+
+    # Then
+    assert "async def repin_dependabot(" in module
+    assert "github_token: dagger.Secret, pr_number: int" in module

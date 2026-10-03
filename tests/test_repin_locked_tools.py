@@ -208,3 +208,207 @@ def test_should_exit_one_with_the_refusal_on_stderr(
     # Then
     assert status == 1
     assert "repin refused" in capsys.readouterr().err
+
+
+HEAD = "e" * 40
+REPOSITORY = "hseshadr/edge-proc"
+
+
+class FakeGitHub:
+    """Serves one pull request and its head files; records every write."""
+
+    def __init__(self, root: Path, pull: dict[str, object], runs: list[object]) -> None:
+        self.root = root
+        self.pull = pull
+        self.runs = runs
+        self.posts: list[tuple[str, object]] = []
+
+    def get_json(self, path: str) -> object:
+        if path == f"/repos/{REPOSITORY}/pulls/7":
+            return self.pull
+        assert path == f"/repos/{REPOSITORY}/actions/workflows/dagger.yml/runs?head_sha={HEAD}"
+        return {"workflow_runs": self.runs}
+
+    def get_text(self, path: str) -> str:
+        prefix, _, ref = path.partition("?ref=")
+        assert ref == HEAD
+        site = prefix.removeprefix(f"/repos/{REPOSITORY}/contents/")
+        return (self.root / site).read_text(encoding="utf-8")
+
+    def post_json(self, path: str, body: object) -> object:
+        self.posts.append((path, body))
+        return {"data": {"createCommitOnBranch": {"commit": {"oid": "f" * 40}}}}
+
+
+def _pull(
+    login: str = "dependabot[bot]", repo: str = REPOSITORY, ref: str = "dependabot/uv/x"
+) -> dict[str, object]:
+    head = {"ref": ref, "sha": HEAD, "repo": {"full_name": repo}}
+    return {"user": {"login": login}, "head": head}
+
+
+def _github(tmp_path: Path, pull: dict[str, object], runs: list[object]) -> FakeGitHub:
+    (tmp_path / "head").mkdir()
+    return FakeGitHub(_repository(tmp_path / "head"), pull, runs)
+
+
+def test_should_commit_the_repinned_sites_bound_to_the_head_and_cancel_its_ci(
+    tmp_path: Path,
+) -> None:
+    # Given
+    runs = [{"id": 11, "status": "queued"}, {"id": 12, "status": "completed"}]
+    github = _github(tmp_path, _pull(), runs)
+
+    # When
+    outcome = tool.repin_pull_request(github, REPOSITORY, 7)
+
+    # Then
+    (graphql, request), cancel = github.posts
+    commit_input = request["variables"]["input"]
+    assert graphql == "/graphql"
+    assert commit_input["expectedHeadOid"] == HEAD
+    assert commit_input["branch"]["branchName"] == "dependabot/uv/x"
+    assert [item["path"] for item in commit_input["fileChanges"]["additions"]] == [
+        str(TEST_SITE),
+        str(DAGGER_SITE),
+    ]
+    assert cancel == (f"/repos/{REPOSITORY}/actions/runs/11/cancel", {})
+    assert outcome == f"re-pinned {TEST_SITE}, {DAGGER_SITE}; cancelled runs 11"
+
+
+def test_should_write_nothing_when_the_head_literals_match_its_lock(tmp_path: Path) -> None:
+    # Given
+    github = _github(tmp_path, _pull(), [])
+    (github.root / "uv.lock").write_text(_lock("1.32.4", "2.10.1"), encoding="utf-8")
+
+    # When
+    outcome = tool.repin_pull_request(github, REPOSITORY, 7)
+
+    # Then
+    assert github.posts == []
+    assert outcome == "literals already match uv.lock; nothing to commit"
+
+
+@pytest.mark.parametrize(
+    ("pull", "reason"),
+    [
+        (_pull(login="octocat"), "not opened by dependabot"),
+        (_pull(repo="fork/edge-proc"), "not in hseshadr/edge-proc"),
+        (_pull(ref="dependabot/npm_and_yarn/x"), "not a Dependabot uv branch"),
+        (_pull(ref=7), "malformed"),
+    ],
+)
+def test_should_refuse_any_pull_request_outside_the_dependabot_uv_guard(
+    tmp_path: Path, pull: dict[str, object], reason: str
+) -> None:
+    # Given
+    github = _github(tmp_path, pull, [])
+
+    # When / Then
+    with pytest.raises(tool.RepinError, match=reason):
+        tool.repin_pull_request(github, REPOSITORY, 7)
+    assert github.posts == []
+
+
+def test_should_refuse_a_graphql_error_before_cancelling_anything(tmp_path: Path) -> None:
+    # Given
+    github = _github(tmp_path, _pull(), [{"id": 11, "status": "queued"}])
+    github.post_json = lambda path, body: {"errors": [{"message": "head moved"}]}  # type: ignore[method-assign]
+
+    # When / Then
+    with pytest.raises(tool.RepinError, match="head moved"):
+        tool.repin_pull_request(github, REPOSITORY, 7)
+
+
+def test_should_refuse_to_run_without_a_token(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Given
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+
+    # When
+    status = tool.main(["run", "--repository", REPOSITORY, "--pr", "7"])
+
+    # Then
+    assert status == 1
+    assert "GH_TOKEN" in capsys.readouterr().err
+
+
+def test_should_run_against_the_rest_api_with_the_environment_token(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Given
+    seen: list[object] = []
+    monkeypatch.setenv("GH_TOKEN", "t0ken")
+
+    def fake_repin(github: object, repository: str, number: int) -> str:
+        seen.extend((github, repository, number))
+        return "done"
+
+    monkeypatch.setattr(tool, "repin_pull_request", fake_repin)
+
+    # When
+    status = tool.main(["run", "--repository", REPOSITORY, "--pr", "7"])
+
+    # Then
+    assert status == 0
+    assert isinstance(seen[0], tool.RestGitHub)
+    assert seen[1:] == [REPOSITORY, 7]
+    assert capsys.readouterr().out.strip() == "done"
+
+
+class _Reply:
+    def __init__(self, body: bytes) -> None:
+        self.body = body
+
+    def __enter__(self) -> _Reply:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        return None
+
+    def read(self) -> bytes:
+        return self.body
+
+
+def test_should_send_bearer_requests_with_the_matching_media_type(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given
+    sent: list[tuple[str, str | None, str | None, bytes | None]] = []
+    replies = iter([b'{"a": 1}', b"raw text", b"", b'{"data": {}}'])
+
+    def fake_urlopen(request: object, timeout: int) -> _Reply:
+        sent.append(
+            (
+                request.full_url,  # type: ignore[attr-defined]
+                request.get_header("Authorization"),  # type: ignore[attr-defined]
+                request.get_header("Accept"),  # type: ignore[attr-defined]
+                request.data,  # type: ignore[attr-defined]
+            )
+        )
+        return _Reply(next(replies))
+
+    monkeypatch.setattr(tool.urllib.request, "urlopen", fake_urlopen)
+    github = tool.RestGitHub("t0ken", "https://api.test")
+
+    # When
+    results = [
+        github.get_json("/j"),
+        github.get_text("/t"),
+        github.post_json("/c", {}),
+        github.post_json("/g", {"q": 1}),
+    ]
+
+    # Then
+    assert results == [{"a": 1}, "raw text", None, {"data": {}}]
+    assert [item[0] for item in sent] == [f"https://api.test{p}" for p in ("/j", "/t", "/c", "/g")]
+    assert {item[1] for item in sent} == {"Bearer t0ken"}
+    assert sent[1][2] == "application/vnd.github.raw+json"
+    assert sent[3][3] == b'{"q": 1}'
+
+
+@pytest.mark.parametrize("base", ["file:///etc", "http://api.github.com"])
+def test_should_refuse_an_api_base_that_is_not_https(base: str) -> None:
+    with pytest.raises(tool.RepinError, match="https"):
+        tool.RestGitHub("t0ken", base)

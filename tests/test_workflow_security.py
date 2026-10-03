@@ -322,13 +322,13 @@ REPIN_GUARD = (
 )
 
 
-def test_should_let_the_repin_job_dispatch_ci_on_its_own_commit() -> None:
+def test_should_trigger_ci_only_on_push_and_pull_request() -> None:
     # Given
     triggers = _mapping(_workflow("dagger.yml").get("on"))
 
-    # When / Then
-    assert set(triggers) == {"push", "pull_request", "workflow_dispatch"}
-    assert triggers["workflow_dispatch"] is None
+    # When / Then: a dispatched run is not a pull-request check, so it cannot satisfy
+    # the required "Dagger" check (observed on hseshadr/assay#101).
+    assert set(triggers) == {"push", "pull_request"}
 
 
 def test_should_repin_only_same_repository_dependabot_uv_prs_without_running_their_code() -> None:
@@ -352,4 +352,6 @@ def test_should_repin_only_same_repository_dependabot_uv_prs_without_running_the
         "${{ github.event.pull_request.head.sha }}",
     ]
     assert "tool=base/scripts/repin_locked_tools.py" in script
+    assert "gh workflow run" not in script
+    assert "gh run cancel" in script
     assert not [word for word in ("uv run", "uv sync", "pip ", "head/scripts") if word in script]

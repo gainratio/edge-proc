@@ -1,0 +1,67 @@
+# Re-pins lock-derived tool literals on Dependabot uv pull requests.
+#
+# Why: tests/test_ci_dependency_graph.py and the Dagger module pin the exact hatchling
+# and pip-audit versions Dagger runs. Those literals copy uv.lock, so every Dependabot
+# bump of either tool failed CI until a human copied the new version by hand. This
+# workflow does that copy; the pin tests are unchanged and still fail on any drift.
+#
+# Security shape (GitHub docs: "Automating Dependabot with GitHub Actions" and
+# "Troubleshooting Dependabot on GitHub Actions"):
+# - Triggered by `pull_request` only. Dependabot runs get a read-only GITHUB_TOKEN and
+#   no Actions secrets by default; `permissions` raises this one job's token. No secrets.
+# - Runs only when the PR author is dependabot[bot] and the branch lives in this repo.
+# - Executes no code from the pull request: the tool comes from the base commit and only
+#   reads uv.lock and two text files from the head checkout.
+# - Commits through createCommitOnBranch bound to the head SHA, so a concurrent
+#   Dependabot push wins. A GITHUB_TOKEN commit starts no CI run, so the job dispatches
+#   Dagger on the branch (workflow_dispatch always runs) and cancels the stale run.
+name: Dependabot re-pin
+on:
+  pull_request:
+    branches: [main]
+permissions: {}
+concurrency:
+  group: edge-proc-repin-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  repin:
+    name: Re-pin lock-derived tool literals
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.head_ref, 'dependabot/uv/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # commit the re-pinned literals to the Dependabot branch
+      actions: write # dispatch Dagger on the new commit and cancel the superseded run
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: head
+          persist-credentials: false
+      - env:
+          BRANCH: ${{ github.head_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tool=base/scripts/repin_locked_tools.py
+          mapfile -t changed < <(python3 "$tool" rewrite --root head)
+          if [ "${#changed[@]}" -eq 0 ] || [ -z "${changed[0]}" ]; then
+            echo "literals already match uv.lock; nothing to commit"
+            exit 0
+          fi
+          python3 "$tool" commit-request --root head --repository "$REPOSITORY" \
+            --branch "$BRANCH" --head-sha "$HEAD_SHA" "${changed[@]}" > request.json
+          gh api graphql --input request.json
+          gh workflow run dagger.yml --repo "$REPOSITORY" --ref "$BRANCH"
+          gh run list --repo "$REPOSITORY" --workflow dagger.yml --commit "$HEAD_SHA" \
+            --json databaseId,status --jq '.[] | select(.status != "completed") | .databaseId' \
+            | xargs -r -n1 gh run cancel --repo "$REPOSITORY"

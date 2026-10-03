@@ -313,3 +313,43 @@ def test_should_paste_no_expression_into_any_publisher_dagger_input() -> None:
 @pytest.mark.parametrize("workflow", ["ci.yml", "dagger-shadow.yml"])
 def test_should_delete_superseded_ci_ingress(workflow: str) -> None:
     assert not (WORKFLOWS / workflow).exists()
+
+
+REPIN_GUARD = (
+    "github.event.pull_request.user.login == 'dependabot[bot]' && "
+    "github.event.pull_request.head.repo.full_name == github.repository && "
+    "startsWith(github.head_ref, 'dependabot/uv/')"
+)
+
+
+def test_should_let_the_repin_job_dispatch_ci_on_its_own_commit() -> None:
+    # Given
+    triggers = _mapping(_workflow("dagger.yml").get("on"))
+
+    # When / Then
+    assert set(triggers) == {"push", "pull_request", "workflow_dispatch"}
+    assert triggers["workflow_dispatch"] is None
+
+
+def test_should_repin_only_same_repository_dependabot_uv_prs_without_running_their_code() -> None:
+    # Given
+    document = _workflow("dependabot-repin.yml")
+    job = _job(document, "repin")
+    steps = _steps(job)
+
+    # When
+    refs = [_mapping(step.get("with")).get("ref") for step in steps if _action(step)]
+    script = str(steps[-1].get("run"))
+
+    # Then
+    assert set(_mapping(document.get("on"))) == {"pull_request"}
+    assert document.get("permissions") == {}
+    assert list(_mapping(document.get("jobs"))) == ["repin"]
+    assert str(job.get("if")).strip() == REPIN_GUARD
+    assert job.get("permissions") == {"contents": "write", "actions": "write"}
+    assert refs == [
+        "${{ github.event.pull_request.base.sha }}",
+        "${{ github.event.pull_request.head.sha }}",
+    ]
+    assert "tool=base/scripts/repin_locked_tools.py" in script
+    assert not [word for word in ("uv run", "uv sync", "pip ", "head/scripts") if word in script]

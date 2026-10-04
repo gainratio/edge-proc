@@ -16,6 +16,9 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # pyproject.toml carries deliberate floors (tests/test_dependency_floors.py);
+    # Dependabot may only move uv.lock, never rewrite a manifest floor.
+    versioning-strategy: lockfile-only
     groups:
       python-deps:
         patterns: ["*"]

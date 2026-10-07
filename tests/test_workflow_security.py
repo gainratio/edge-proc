@@ -155,7 +155,7 @@ def _expand_action_args(args: str, tag: str, cwd: Path) -> list[str]:
     """Expand args exactly as dagger-for-github's final bash step does, but print them."""
     bash = shutil.which("bash")
     assert bash is not None
-    env = {"TAG": tag, "GITHUB_SHA": "a" * 40, "GITHUB_REPOSITORY": "hseshadr/edge-proc"}
+    env = {"TAG": tag, "GITHUB_SHA": "a" * 40, "GITHUB_REPOSITORY": "gainratio/edge-proc"}
     env["PATH"] = "/usr/bin:/bin"
     result = subprocess.run(  # noqa: S603
         [bash, "-c", f"printf '%s\\0' {args}"], env=env, cwd=cwd, capture_output=True, check=True
@@ -212,7 +212,7 @@ def test_should_pass_any_dispatched_tag_to_dagger_as_one_inert_argument(
     # Then Dagger receives the tag verbatim as one argument and no command ran
     assert words[:2] == ["release-candidate", f"--tag={tag}"]
     assert words[2] == "--commit-sha=" + "a" * 40
-    assert words[4] == "--repository=hseshadr/edge-proc"
+    assert words[4] == "--repository=gainratio/edge-proc"
     assert list(tmp_path.iterdir()) == []
 
 

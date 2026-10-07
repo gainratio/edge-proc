@@ -16,10 +16,10 @@ UV_IMAGE: Final = (
     "ghcr.io/astral-sh/uv:0.11.32@sha256:"
     "df4cae8f3a96d175e2e5f992e597550000edbe78fdc2594d5cd8de1a217f504c"
 )
-#: The repository as GitHub reports it today; the default keeps existing callers exact.
-DEFAULT_REPOSITORY: Final = "hseshadr/edge-proc"
-#: The only identities a run may claim: this repository today, and after the org transfer.
-ALLOWED_REPOSITORIES: Final = ("hseshadr/edge-proc", "gainratio/edge-proc")
+#: The only identities a run may claim: the canonical gainratio owner first, then the
+#: pre-transfer identity until the org move finishes. There is deliberately no default:
+#: every gate must be handed the run's own `github.repository`.
+ALLOWED_REPOSITORIES: Final = ("gainratio/edge-proc", "hseshadr/edge-proc")
 PROJECT_NAME: Final = "edge-proc"
 CENTRAL_MODULE_SHA: Final = "a88866232e679b6353d2b75bceb01969be739f67"
 SOURCE_EXCLUDES: Final = [
@@ -99,21 +99,19 @@ class EdgeProc:
         return self._quality(self.source)
 
     @function
-    async def security(self, commit_sha: str, repository: str = DEFAULT_REPOSITORY) -> str:
+    async def security(self, commit_sha: str, repository: str) -> str:
         """Run the shared exact-source, workflow, and history guard."""
         await self._verified_source(self.source, _allowed_repository(repository), commit_sha)
         return "EdgeProc shared Dagger security gate passed"
 
     @function
-    def dependency_audit(
-        self, commit_sha: str, repository: str = DEFAULT_REPOSITORY
-    ) -> dagger.Container:
+    def dependency_audit(self, commit_sha: str, repository: str) -> dagger.Container:
         """Audit the locked graph through the shared Python-package Lego."""
         return self._dependency_audit(self.source, _allowed_repository(repository), commit_sha)
 
     @function
     @check
-    async def ci(self, commit_sha: str, repository: str = DEFAULT_REPOSITORY) -> str:
+    async def ci(self, commit_sha: str, repository: str) -> str:
         """Run the canonical exact-source gate sequentially."""
         await self._run_ci(self.source, commit_sha, _allowed_repository(repository))
         return "EdgeProc canonical Dagger gate passed"
@@ -122,7 +120,7 @@ class EdgeProc:
     @function(cache="never")  # type: ignore[call-overload,untyped-decorator]  # SDK stub gap
     async def release_candidate(
         self, tag: str, commit_sha: str, github_token: dagger.Secret,
-        repository: str = DEFAULT_REPOSITORY,
+        repository: str,
     ) -> dagger.Directory:
         """Create and reverify one exact attempt-bound Foundation envelope."""
         repository = _allowed_repository(repository)
@@ -136,7 +134,7 @@ class EdgeProc:
 
     @function(cache="never")  # type: ignore[call-overload,untyped-decorator]  # SDK stub gap
     async def repin_dependabot(
-        self, github_token: dagger.Secret, pr_number: int, repository: str = DEFAULT_REPOSITORY
+        self, github_token: dagger.Secret, pr_number: int, repository: str
     ) -> str:
         """Copy uv.lock tool versions into the literals of one Dependabot uv PR."""
         repository = _allowed_repository(repository)
@@ -155,7 +153,7 @@ class EdgeProc:
         commit_sha: str,
         workflow_run_id: str,
         run_attempt: int,
-        repository: str = DEFAULT_REPOSITORY,
+        repository: str,
     ) -> dagger.Directory:
         """Revalidate a closed candidate without source or credentials."""
         lineage = _Lineage(
@@ -165,9 +163,7 @@ class EdgeProc:
         await verified.tag()
         return verified.envelope()
 
-    async def _run_ci(
-        self, source: dagger.Directory, commit_sha: str, repository: str = DEFAULT_REPOSITORY
-    ) -> None:
+    async def _run_ci(self, source: dagger.Directory, commit_sha: str, repository: str) -> None:
         bound = await self._verified_source(source, repository, commit_sha)
         await self._product_gate(bound).sync()
         await self._dependency_audit(bound, repository, commit_sha).sync()

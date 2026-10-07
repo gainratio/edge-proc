@@ -71,9 +71,9 @@ dev = [
 edgeproc = "edgeproc.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/hseshadr/edge-proc"
-Repository = "https://github.com/hseshadr/edge-proc"
-Issues = "https://github.com/hseshadr/edge-proc/issues"
+Homepage = "https://github.com/gainratio/edge-proc"
+Repository = "https://github.com/gainratio/edge-proc"
+Issues = "https://github.com/gainratio/edge-proc/issues"
 
 # edgeproc-core installs from PyPI. Co-developing it locally? Clone it next to
 # this repo and add a path override (uncomment):

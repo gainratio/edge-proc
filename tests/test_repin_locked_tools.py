@@ -142,7 +142,7 @@ def test_should_build_a_head_bound_commit_request(tmp_path: Path) -> None:
 
     # When
     request = tool.commit_request(
-        root, "hseshadr/edge-proc", "dependabot/uv/x", "c" * 40, (TEST_SITE,)
+        root, "gainratio/edge-proc", "dependabot/uv/x", "c" * 40, (TEST_SITE,)
     )
 
     # Then
@@ -161,7 +161,7 @@ def test_should_refuse_a_head_that_is_not_a_full_commit_sha(tmp_path: Path) -> N
 
     # When / Then
     with pytest.raises(tool.RepinError, match="commit sha"):
-        tool.commit_request(root, "hseshadr/edge-proc", "b", "HEAD", (TEST_SITE,))
+        tool.commit_request(root, "gainratio/edge-proc", "b", "HEAD", (TEST_SITE,))
 
 
 def test_should_print_changed_sites_from_the_cli(
@@ -211,7 +211,7 @@ def test_should_exit_one_with_the_refusal_on_stderr(
 
 
 HEAD = "e" * 40
-REPOSITORY = "hseshadr/edge-proc"
+REPOSITORY = "gainratio/edge-proc"
 
 
 class FakeGitHub:
@@ -293,7 +293,7 @@ def test_should_write_nothing_when_the_head_literals_match_its_lock(tmp_path: Pa
     ("pull", "reason"),
     [
         (_pull(login="octocat"), "not opened by dependabot"),
-        (_pull(repo="fork/edge-proc"), "not in hseshadr/edge-proc"),
+        (_pull(repo="fork/edge-proc"), "not in gainratio/edge-proc"),
         (_pull(ref="dependabot/npm_and_yarn/x"), "not a Dependabot uv branch"),
         (_pull(ref=7), "malformed"),
     ],

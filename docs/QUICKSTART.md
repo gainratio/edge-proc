@@ -27,7 +27,7 @@ Budget more wall-clock on a slow link. The model download happens once; later ru
 ## 1. Clone and gate
 
 ```bash
-git clone https://github.com/hseshadr/edge-proc.git
+git clone https://github.com/gainratio/edge-proc.git
 cd edge-proc
 
 uv sync --all-extras    # core + [localvec] + [bundles] + dev tooling

@@ -18,7 +18,7 @@ from edge_proc.main import EdgeProc
 
 ROOT = Path(__file__).resolve().parents[2]
 CENTRAL_SHA = "a88866232e679b6353d2b75bceb01969be739f67"
-REPOSITORY = "hseshadr/edge-proc"
+REPOSITORY = "gainratio/edge-proc"
 PROJECT_NAME = "edge-proc"
 COMMIT_SHA = "a" * 40
 MAX_FUNCTION_LINES = 15
@@ -260,7 +260,7 @@ def test_should_bind_guard_then_run_product_and_closed_audit_on_one_source(
     edge = _edge(source, events)
 
     # When
-    asyncio.run(edge._run_ci(source, COMMIT_SHA))
+    asyncio.run(edge._run_ci(source, COMMIT_SHA, REPOSITORY))
 
     # Then
     assert events == ["source", "guard", "product", "audit"]
@@ -280,7 +280,7 @@ def test_should_query_osv_for_non_pypi_locked_versions(
     edge = _edge(cast(dagger.Directory, object()), [])
 
     # When
-    edge.dependency_audit(COMMIT_SHA)
+    edge.dependency_audit(COMMIT_SHA, REPOSITORY)
 
     # Then
     assert package.audit_commands == [list(dagger_module.OSV_AUDIT_COMMAND)]
@@ -297,7 +297,7 @@ def test_should_stop_before_product_or_audit_when_shared_guard_rejects(
 
     # When / Then
     with pytest.raises(SharedGuardRejectedError, match="shared guard rejected source"):
-        asyncio.run(edge._run_ci(source, COMMIT_SHA))
+        asyncio.run(edge._run_ci(source, COMMIT_SHA, REPOSITORY))
     assert events == ["source"]
     assert edge.product_source is None
     assert package.audit_call is None
@@ -313,7 +313,7 @@ def test_should_create_and_reverify_one_attempt_bound_closed_candidate(
     edge = _edge(source, events)
 
     # When
-    result = asyncio.run(edge.release_candidate("v0.4.1", COMMIT_SHA, token))
+    result = asyncio.run(edge.release_candidate("v0.4.1", COMMIT_SHA, token, REPOSITORY))
 
     # Then
     identity = (REPOSITORY, COMMIT_SHA, PROJECT_NAME, CENTRAL_SHA, "6100", 2)
@@ -347,7 +347,9 @@ def test_should_reject_manual_tag_mismatch_before_candidate_handoff(
 
     # When / Then
     with pytest.raises(ValueError, match="manual tag differs"):
-        asyncio.run(edge.release_candidate("v0.4.1", COMMIT_SHA, cast(dagger.Secret, object())))
+        asyncio.run(
+            edge.release_candidate("v0.4.1", COMMIT_SHA, cast(dagger.Secret, object()), REPOSITORY)
+        )
     assert package.verify_call is None
 
 
@@ -360,7 +362,7 @@ def test_should_verify_candidate_without_source_or_credentials(
     edge = _edge(cast(dagger.Directory, object()), events)
 
     # When
-    result = asyncio.run(edge.verify_candidate(envelope, COMMIT_SHA, "6100", 2))
+    result = asyncio.run(edge.verify_candidate(envelope, COMMIT_SHA, "6100", 2, REPOSITORY))
 
     # Then
     identity = (REPOSITORY, COMMIT_SHA, PROJECT_NAME, CENTRAL_SHA, "6100", 2)
@@ -399,8 +401,8 @@ def test_should_keep_every_adapter_function_within_the_python_quality_contract()
     assert {name: span for name, span in spans.items() if span > MAX_FUNCTION_LINES} == {}
 
 
-#: The repository as GitHub reports it today, and after the planned transfer to the org.
-ALLOWED = ("hseshadr/edge-proc", "gainratio/edge-proc")
+#: The canonical gainratio identity, then the pre-transfer one kept until the org move finishes.
+ALLOWED = ("gainratio/edge-proc", "hseshadr/edge-proc")
 
 #: A fork, a sibling repository, a look-alike name, a look-alike owner, and nothing.
 REFUSED = (
@@ -412,12 +414,25 @@ REFUSED = (
 )
 
 
-def test_should_default_to_the_repository_identity_used_today() -> None:
+@pytest.mark.parametrize(
+    "gate",
+    [
+        "ci",
+        "security",
+        "dependency_audit",
+        "release_candidate",
+        "repin_dependabot",
+        "verify_candidate",
+        "_run_ci",
+    ],
+)
+def test_should_require_the_runs_repository_with_no_stale_default_owner(gate: str) -> None:
     # Given / When
-    parameter = inspect.signature(EdgeProc.ci).parameters["repository"]
+    parameter = inspect.signature(getattr(EdgeProc, gate)).parameters["repository"]
 
     # Then
-    assert parameter.default == "hseshadr/edge-proc"
+    assert parameter.default is inspect.Parameter.empty
+    assert not hasattr(dagger_module, "DEFAULT_REPOSITORY")
     assert dagger_module.ALLOWED_REPOSITORIES == ALLOWED
 
 

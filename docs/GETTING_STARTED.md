@@ -21,7 +21,7 @@ builds on, installs from PyPI.
 ## Clone, install, and run it
 
 ```bash
-git clone https://github.com/hseshadr/edge-proc.git
+git clone https://github.com/gainratio/edge-proc.git
 cd edge-proc
 uv sync --all-extras
 ```

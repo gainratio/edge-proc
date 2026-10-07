@@ -12,8 +12,8 @@ authors:
   - family-names: Seshadri
     given-names: Harish
     email: harish.seshadri@gmail.com
-repository-code: "https://github.com/hseshadr/edge-proc"
-url: "https://github.com/hseshadr/edge-proc"
+repository-code: "https://github.com/gainratio/edge-proc"
+url: "https://github.com/gainratio/edge-proc"
 license: MIT
 version: 0.5.0
 keywords:

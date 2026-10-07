@@ -18,9 +18,9 @@ on the device, EdgeProc can also search it there, with no network.
 
 **Technical docs:** [Architecture](docs/ARCHITECTURE.md) · [Getting started for developers](docs/GETTING_STARTED.md) · [Full walkthrough with search](docs/QUICKSTART.md) · [Configuration](docs/CONFIGURATION.md) · [Operations and security](docs/OPERATIONS.md)
 
-[![CI](https://github.com/hseshadr/edge-proc/actions/workflows/dagger.yml/badge.svg)](https://github.com/hseshadr/edge-proc/actions/workflows/dagger.yml)
+[![CI](https://github.com/gainratio/edge-proc/actions/workflows/dagger.yml/badge.svg)](https://github.com/gainratio/edge-proc/actions/workflows/dagger.yml)
 [![PyPI](https://img.shields.io/pypi/v/edge-proc)](https://pypi.org/project/edge-proc/)
-[![License](https://img.shields.io/github/license/hseshadr/edge-proc)](LICENSE)
+[![License](https://img.shields.io/github/license/gainratio/edge-proc)](LICENSE)
 
 ## Try it
 
@@ -135,7 +135,7 @@ rather than fetch one.
 
 ## How it fits with the related projects
 
-- **[edgeproc-core](https://github.com/hseshadr/edgeproc-core)** (Python, on PyPI) is a
+- **[edgeproc-core](https://github.com/gainratio/edgeproc-core)** (Python, on PyPI) is a
   smaller library underneath this one. EdgeProc uses two things from it: a common interface
   for vector search indexes, which EdgeProc's FAISS index implements, and the stable error
   codes, like `bundle.integrity_failed`. It installs automatically with EdgeProc. You would
@@ -144,10 +144,10 @@ rather than fetch one.
   pages) does the checking half of EdgeProc inside a browser tab. It reads the same signed
   format that `edgeproc publish` writes, so you can publish with this library and load the
   data in a web page.
-- **[edge-reco](https://github.com/hseshadr/edge-reco)** is a demo online store
+- **[edge-reco](https://github.com/gainratio/edge-reco)** is a demo online store
   ([edge-reco.com](https://edge-reco.com)) that runs product search in the shopper's
   browser. It uses these libraries.
-- **[privacy-core](https://github.com/hseshadr/privacy-core)** (published on npm as
+- **[privacy-core](https://github.com/gainratio/privacy-core)** (published on npm as
   `@edgeproc/privacy-core`) is a separate project despite the shared name. It hides card
   numbers and similar IDs from AI prompts in the browser, and does not use EdgeProc.
 
@@ -196,7 +196,7 @@ This README documents EdgeProc 0.5.0. It needs Python 3.13 or newer and installs
 ## Develop
 
 ```bash
-git clone https://github.com/hseshadr/edge-proc.git
+git clone https://github.com/gainratio/edge-proc.git
 cd edge-proc
 uv sync --all-extras
 uv run poe gate
@@ -229,6 +229,6 @@ setup, a map of the code, a first change, and how to open a pull request.
 MIT. See [LICENSE](LICENSE). To cite EdgeProc, use [CITATION.cff](CITATION.cff).
 
 EdgeProc (also written `edge-proc` and `edgeproc`) lives at
-[hseshadr/edge-proc](https://github.com/hseshadr/edge-proc), with a project page at
+[gainratio/edge-proc](https://github.com/gainratio/edge-proc), with a project page at
 [edge-reco.com/edgeproc](https://edge-reco.com/edgeproc). It is not affiliated with any other
 product or company named "EdgeProc".

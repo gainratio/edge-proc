@@ -10,7 +10,7 @@ New here? [Getting started for developers](docs/GETTING_STARTED.md) walks you fr
 clone to a green local build and your first change, with the time each step takes.
 
 ```bash
-git clone https://github.com/hseshadr/edge-proc.git
+git clone https://github.com/gainratio/edge-proc.git
 cd edge-proc
 uv sync --all-extras   # core + extras + dev tooling
 uv run poe gate        # lint + format-check + typecheck + complexity + test — what CI runs

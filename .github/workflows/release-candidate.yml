@@ -37,7 +37,7 @@ jobs:
         with:
           version: "0.21.8"
           verb: call
-          args: release-candidate --tag="$TAG" --commit-sha="$GITHUB_SHA" --github-token=env:GITHUB_TOKEN export --path=release
+          args: release-candidate --tag="$TAG" --commit-sha="$GITHUB_SHA" --github-token=env:GITHUB_TOKEN --repository="$GITHUB_REPOSITORY" export --path=release
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: edge-proc-${{ github.sha }}

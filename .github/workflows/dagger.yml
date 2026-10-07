@@ -21,4 +21,4 @@ jobs:
         with:
           version: "0.21.8"
           verb: call
-          args: ci --commit-sha=${{ github.sha }}
+          args: ci --commit-sha=${{ github.sha }} --repository=${{ github.repository }}

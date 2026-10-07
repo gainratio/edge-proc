@@ -88,7 +88,9 @@ def test_should_fail_pin_audit_for_a_yaml_bypass(tmp_path: Path) -> None:
 def test_should_route_pull_request_and_main_ci_only_through_dagger() -> None:
     document = _workflow("dagger.yml")
     job = _job(document, "dagger")
-    _assert_thin_dagger(job, "ci --commit-sha=${{ github.sha }}")
+    _assert_thin_dagger(
+        job, "ci --commit-sha=${{ github.sha }} --repository=${{ github.repository }}"
+    )
     assert job.get("name") == "Dagger"
 
 
@@ -96,7 +98,7 @@ def test_should_route_scheduled_dependency_audit_with_exact_caller_identity() ->
     document = _workflow("security-audit.yml")
     _assert_thin_dagger(
         _job(document, "dependency-audit"),
-        "dependency-audit --commit-sha=${{ github.sha }}",
+        "dependency-audit --commit-sha=${{ github.sha }} --repository=${{ github.repository }}",
     )
 
 
@@ -105,7 +107,7 @@ def test_should_route_scheduled_dependency_audit_with_exact_caller_identity() ->
 #: it as one literal word and never parses it as code. No `${{ }}` expression appears.
 RELEASE_ARGS = (
     'release-candidate --tag="$TAG" --commit-sha="$GITHUB_SHA" '
-    "--github-token=env:GITHUB_TOKEN export --path=release"
+    '--github-token=env:GITHUB_TOKEN --repository="$GITHUB_REPOSITORY" export --path=release'
 )
 
 #: Dispatch tags an attacker could type; each must reach Dagger as one inert argument.
@@ -153,7 +155,8 @@ def _expand_action_args(args: str, tag: str, cwd: Path) -> list[str]:
     """Expand args exactly as dagger-for-github's final bash step does, but print them."""
     bash = shutil.which("bash")
     assert bash is not None
-    env = {"TAG": tag, "GITHUB_SHA": "a" * 40, "PATH": "/usr/bin:/bin"}
+    env = {"TAG": tag, "GITHUB_SHA": "a" * 40, "GITHUB_REPOSITORY": "hseshadr/edge-proc"}
+    env["PATH"] = "/usr/bin:/bin"
     result = subprocess.run(  # noqa: S603
         [bash, "-c", f"printf '%s\\0' {args}"], env=env, cwd=cwd, capture_output=True, check=True
     )
@@ -209,6 +212,7 @@ def test_should_pass_any_dispatched_tag_to_dagger_as_one_inert_argument(
     # Then Dagger receives the tag verbatim as one argument and no command ran
     assert words[:2] == ["release-candidate", f"--tag={tag}"]
     assert words[2] == "--commit-sha=" + "a" * 40
+    assert words[4] == "--repository=hseshadr/edge-proc"
     assert list(tmp_path.iterdir()) == []
 
 
@@ -331,7 +335,10 @@ def test_should_trigger_ci_only_on_push_and_pull_request() -> None:
     assert set(triggers) == {"push", "pull_request"}
 
 
-REPIN_ARGS = 'repin-dependabot --github-token=env:GH_TOKEN --pr-number="$PR_NUMBER"'
+REPIN_ARGS = (
+    'repin-dependabot --github-token=env:GH_TOKEN --pr-number="$PR_NUMBER" '
+    '--repository="$GITHUB_REPOSITORY"'
+)
 
 
 def test_should_repin_only_same_repository_dependabot_uv_prs_through_dagger() -> None:

@@ -17,7 +17,7 @@ from edge_proc import main as dagger_module
 from edge_proc.main import EdgeProc
 
 ROOT = Path(__file__).resolve().parents[2]
-CENTRAL_SHA = "a895f726e9786bcfd2bdf68f87d3d5c4b411f702"
+CENTRAL_SHA = "a88866232e679b6353d2b75bceb01969be739f67"
 REPOSITORY = "hseshadr/edge-proc"
 PROJECT_NAME = "edge-proc"
 COMMIT_SHA = "a" * 40
@@ -397,3 +397,96 @@ def test_should_keep_every_adapter_function_within_the_python_quality_contract()
     # Then
     spans = {node.name: node.end_lineno - node.lineno + 1 for node in functions}
     assert {name: span for name, span in spans.items() if span > MAX_FUNCTION_LINES} == {}
+
+
+#: The repository as GitHub reports it today, and after the planned transfer to the org.
+ALLOWED = ("hseshadr/edge-proc", "gainratio/edge-proc")
+
+#: A fork, a sibling repository, a look-alike name, a look-alike owner, and nothing.
+REFUSED = (
+    "attacker/edge-proc",
+    "gainratio/edgeproc-core",
+    "hseshadr/edge-proc-evil",
+    "gainratio-evil/edge-proc",
+    "",
+)
+
+
+def test_should_default_to_the_repository_identity_used_today() -> None:
+    # Given / When
+    parameter = inspect.signature(EdgeProc.ci).parameters["repository"]
+
+    # Then
+    assert parameter.default == "hseshadr/edge-proc"
+    assert dagger_module.ALLOWED_REPOSITORIES == ALLOWED
+
+
+@pytest.mark.parametrize("repository", ALLOWED)
+def test_should_bind_the_whole_gate_to_the_runs_own_allowed_repository(
+    monkeypatch: pytest.MonkeyPatch, repository: str
+) -> None:
+    # Given
+    events, foundation, package = _patch_clients(monkeypatch)
+    source = cast(dagger.Directory, object())
+    edge = _edge(source, events)
+
+    # When
+    asyncio.run(edge.ci(COMMIT_SHA, repository))
+
+    # Then
+    assert [call[2] for call in foundation.calls] == [repository, repository]
+    assert package.audit_call == (foundation.bound, repository, COMMIT_SHA)
+
+
+@pytest.mark.parametrize("repository", ALLOWED)
+def test_should_bind_the_release_candidate_to_the_runs_own_allowed_repository(
+    monkeypatch: pytest.MonkeyPatch, repository: str
+) -> None:
+    # Given
+    events, foundation, package = _patch_clients(monkeypatch)
+    token = cast(dagger.Secret, object())
+    edge = _edge(cast(dagger.Directory, object()), events)
+
+    # When
+    asyncio.run(edge.release_candidate("v0.4.1", COMMIT_SHA, token, repository))
+
+    # Then
+    identity = (repository, COMMIT_SHA, PROJECT_NAME, CENTRAL_SHA, "6100", 2)
+    assert package.candidate_call == (foundation.bound, token, *identity)
+    assert package.verify_call == (package.created.directory, *identity)
+    assert foundation.green_call == (token, repository)
+
+
+def _refused_entrypoints(edge: EdgeProc, repository: str) -> dict[str, object]:
+    token = cast(dagger.Secret, object())
+    envelope = cast(dagger.Directory, object())
+    return {
+        "ci": lambda: asyncio.run(edge.ci(COMMIT_SHA, repository)),
+        "security": lambda: asyncio.run(edge.security(COMMIT_SHA, repository)),
+        "audit": lambda: edge.dependency_audit(COMMIT_SHA, repository),
+        "release": lambda: asyncio.run(
+            edge.release_candidate("v0.4.1", COMMIT_SHA, token, repository)
+        ),
+        "verify": lambda: asyncio.run(
+            edge.verify_candidate(envelope, COMMIT_SHA, "6100", 2, repository)
+        ),
+        "repin": lambda: asyncio.run(edge.repin_dependabot(token, 7, repository)),
+    }
+
+
+@pytest.mark.parametrize("entrypoint", ["ci", "security", "audit", "release", "verify", "repin"])
+@pytest.mark.parametrize("repository", REFUSED)
+def test_should_refuse_any_other_repository_before_any_shared_call(
+    monkeypatch: pytest.MonkeyPatch, repository: str, entrypoint: str
+) -> None:
+    # Given
+    events, foundation, package = _patch_clients(monkeypatch)
+    edge = _edge(cast(dagger.Directory, object()), events)
+    call = _refused_entrypoints(edge, repository)[entrypoint]
+
+    # When / Then
+    with pytest.raises(ValueError, match="not an allowed edge-proc repository"):
+        call()  # type: ignore[operator]
+    assert events == []
+    assert foundation.calls == []
+    assert (package.audit_call, package.candidate_call, package.verify_call) == (None,) * 3

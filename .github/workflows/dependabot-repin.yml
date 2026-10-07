@@ -52,4 +52,4 @@ jobs:
         with:
           version: "0.21.8"
           verb: call
-          args: repin-dependabot --github-token=env:GH_TOKEN --pr-number="$PR_NUMBER"
+          args: repin-dependabot --github-token=env:GH_TOKEN --pr-number="$PR_NUMBER" --repository="$GITHUB_REPOSITORY"

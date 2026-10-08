@@ -271,8 +271,8 @@ def test_should_keep_oidc_publisher_source_free_and_shell_free() -> None:
     assert settings.get("attestations") is True
 
 
-#: The central lineage proof (hseshadr/ci#49), pinned at a literal hseshadr/ci commit.
-LINEAGE_MODULE = re.compile(r"^github\.com/hseshadr/ci/modules/portfolio-foundation@[0-9a-f]{40}$")
+#: The central lineage proof (gainratio/ci#49), pinned at a literal gainratio/ci commit.
+LINEAGE_MODULE = re.compile(r"^github\.com/gainratio/ci/modules/portfolio-foundation@[0-9a-f]{40}$")
 #: Exact args: every value is a quoted env var bound to the triggering run, so a
 #: hard-coded run id or SHA cannot make the proof about a different run.
 LINEAGE_ARGS = (

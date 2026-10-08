@@ -211,12 +211,12 @@ def test_should_pin_both_reusable_modules_to_one_exact_central_commit() -> None:
     assert config["dependencies"] == [
         {
             "name": "foundation",
-            "source": f"github.com/hseshadr/ci/modules/portfolio-foundation@{CENTRAL_SHA}",
+            "source": f"github.com/gainratio/ci/modules/portfolio-foundation@{CENTRAL_SHA}",
             "pin": CENTRAL_SHA,
         },
         {
             "name": "python-package",
-            "source": f"github.com/hseshadr/ci/modules/python-package@{CENTRAL_SHA}",
+            "source": f"github.com/gainratio/ci/modules/python-package@{CENTRAL_SHA}",
             "pin": CENTRAL_SHA,
         },
     ]

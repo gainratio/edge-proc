@@ -13,7 +13,7 @@
 # - Executes no code from the pull request: the checkout is the base commit, so the
 #   Dagger module and scripts/repin_locked_tools.py are the reviewed versions. The tool
 #   fetches only uv.lock and two text files of the head, as text, through the REST API.
-# - Fleet policy shape (hseshadr/ci fleet_policy.py): checkout then Dagger, no run step.
+# - Fleet policy shape (gainratio/ci fleet_policy.py): checkout then Dagger, no run step.
 #   Event values reach Dagger only through the step environment, never pasted in args.
 # - Commits through createCommitOnBranch bound to the head SHA, so a concurrent
 #   Dependabot push wins, then cancels CI on the superseded commit (Dagger function

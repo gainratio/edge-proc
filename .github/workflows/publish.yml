@@ -23,8 +23,8 @@ jobs:
     steps:
       # `head_branch == default_branch` above is satisfied by a dispatch on a
       # TAG named `main`, so it cannot bind the candidate to main on its own.
-      # Before any artifact is touched, the central hseshadr/ci lineage function
-      # (pinned at a literal commit, hseshadr/ci#49) proves from GitHub's run
+      # Before any artifact is touched, the central gainratio/ci lineage function
+      # (pinned at a literal commit, gainratio/ci#49) proves from GitHub's run
       # records that the triggering run is a successful dispatch of
       # release-candidate.yml here for exactly HEAD_SHA, and that main contains
       # HEAD_SHA. Event values reach the action's bash only as quoted env vars.
@@ -36,7 +36,7 @@ jobs:
         with:
           version: "0.21.8"
           verb: call
-          module: github.com/hseshadr/ci/modules/portfolio-foundation@a88866232e679b6353d2b75bceb01969be739f67
+          module: github.com/gainratio/ci/modules/portfolio-foundation@a88866232e679b6353d2b75bceb01969be739f67
           args: release-lineage --github-token=env:GH_TOKEN --repository="$GITHUB_REPOSITORY" --run-id="$RUN_ID" --head-sha="$HEAD_SHA" --publish-run-id="$GITHUB_RUN_ID"
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:

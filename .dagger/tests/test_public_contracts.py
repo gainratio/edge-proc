@@ -17,7 +17,7 @@ from edge_proc import main as dagger_module
 from edge_proc.main import EdgeProc
 
 ROOT = Path(__file__).resolve().parents[2]
-CENTRAL_SHA = "a88866232e679b6353d2b75bceb01969be739f67"
+CENTRAL_SHA = "528eaec76121b75810c58bab610d9f2064b95227"
 REPOSITORY = "gainratio/edge-proc"
 PROJECT_NAME = "edge-proc"
 COMMIT_SHA = "a" * 40

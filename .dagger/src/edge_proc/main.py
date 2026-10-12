@@ -21,7 +21,7 @@ UV_IMAGE: Final = (
 #: every gate must be handed the run's own `github.repository`.
 ALLOWED_REPOSITORIES: Final = ("gainratio/edge-proc", "hseshadr/edge-proc")
 PROJECT_NAME: Final = "edge-proc"
-CENTRAL_MODULE_SHA: Final = "528eaec76121b75810c58bab610d9f2064b95227"
+CENTRAL_MODULE_SHA: Final = "fbc02232928fbca80da1013e9e1676a3e41424a6"
 SOURCE_EXCLUDES: Final = [
     ".git",
     ".venv",

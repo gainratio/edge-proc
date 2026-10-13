@@ -9,3 +9,13 @@ paths = [
   '''(^|/)\.venv/''',
   '''(^|/)htmlcov/''',
 ]
+
+# GitHub App installation tokens and Actions GITHUB_TOKEN use a stateless
+# ghs_<APPID>_<JWT> format (~520 chars, charset [A-Za-z0-9._-]) since 2026-10-02.
+# gitleaks' built-in github-app-token rule only matches the classic 36-char form,
+# so this rule uses GitHub's documented pattern. Drop it once upstream covers it.
+[[rules]]
+id = "github-app-token-stateless"
+description = "GitHub App installation or Actions token (stateless ghs_<APPID>_<JWT> format)"
+regex = '''ghs_[A-Za-z0-9._-]{36,}'''
+keywords = ["ghs_"]

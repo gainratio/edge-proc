@@ -39,6 +39,7 @@ def test_should_lock_audit_and_build_tools_used_by_dagger() -> None:
 
     # Then: Dagger builds with no isolation from the locked hatchling, so the build
     # requirement is exactly the locked version (read from uv.lock, never a copy), and
-    # the audit runs the locked pip-audit (the Dagger audit constrains to uv.lock).
+    # the audit runs the locked pip-audit (Dagger: `uv run --frozen --only-group dev`).
     assert build_requirements == [f"hatchling=={versions['hatchling']}"]
     assert "pip-audit" in versions
+    assert any(item.startswith("pip-audit") for item in project["dependency-groups"]["dev"])

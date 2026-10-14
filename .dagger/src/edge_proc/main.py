@@ -33,16 +33,14 @@ SOURCE_EXCLUDES: Final = [
     "**/__pycache__",
     "dist",
 ]
-#: pip-audit and its own dependencies resolve from the exported lock (the shared audit
-#: writes it to /work/requirements.txt), so the audited tool tracks uv.lock with no copy.
+#: pip-audit runs from the dev group of uv.lock in the shared audit's /src project:
+#: `--frozen` installs exactly the locked versions and uv verifies every locked hash.
 OSV_AUDIT_COMMAND: Final = (
     "uv",
-    "tool",
     "run",
-    "--constraints",
-    "/work/requirements.txt",
-    "--from",
-    "pip-audit",
+    "--frozen",
+    "--only-group",
+    "dev",
     "pip-audit",
     "-r",
     "/work/requirements.txt",

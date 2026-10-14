@@ -282,12 +282,13 @@ def test_should_query_osv_for_non_pypi_locked_versions(
     # When
     edge.dependency_audit(COMMIT_SHA, REPOSITORY)
 
-    # Then: pip-audit and its own dependencies resolve from the exported uv.lock, so the
-    # audited tool version follows the lock with no copied version literal to drift.
+    # Then: pip-audit runs from the dev group of uv.lock: `--frozen` installs exactly the
+    # locked versions and uv checks every locked hash, so nothing resolves outside the lock.
     assert package.audit_commands == [list(dagger_module.OSV_AUDIT_COMMAND)]
     command = package.audit_commands[0]
-    assert command[:6] == ["uv", "tool", "run", "--constraints", "/work/requirements.txt", "--from"]
-    assert command[6:8] == ["pip-audit", "pip-audit"]
+    assert command[:6] == ["uv", "run", "--frozen", "--only-group", "dev", "pip-audit"]
+    assert "--from" not in command
+    assert "tool" not in command
     module = (ROOT / ".dagger/src/edge_proc/main.py").read_text(encoding="utf-8")
     assert "pip-audit==" not in module
 

@@ -21,6 +21,9 @@ updates:
 
   - package-ecosystem: "uv"
     directory: "/"
+    # .dagger/ is the Dagger module: its dagger-io path dependency is the generated,
+    # gitignored SDK, so the updater cannot resolve it and crashes. Its pins move by hand.
+    exclude-paths: [".dagger/**"]
     schedule:
       interval: "monthly"
     cooldown:

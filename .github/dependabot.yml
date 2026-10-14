@@ -1,21 +1,30 @@
-# Weekly dependency updates, grouped to keep PR noise low (house standard §4).
-# Each ecosystem consolidates into a single reviewable PR per run instead of a
-# flood of one-per-dependency PRs.
+# Monthly dependency updates: one grouped minor+patch PR per ecosystem.
+# Semver-major updates are ignored here on purpose: majors are migrated by hand in a
+# human-written PR, so a Dependabot PR goes red only for real breakage.
+# cooldown: wait 7 days after a release before proposing it (lets bad releases get yanked).
 version: 2
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    cooldown:
+      default-days: 7
     groups:
       actions:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+    ignore:
+      # Majors are migrated by hand.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "uv"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    cooldown:
+      default-days: 7
     # pyproject.toml carries deliberate floors (tests/test_dependency_floors.py);
     # Dependabot may only move uv.lock, never rewrite a manifest floor.
     versioning-strategy: lockfile-only
@@ -23,3 +32,7 @@ updates:
       python-deps:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+    ignore:
+      # Majors are migrated by hand.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]

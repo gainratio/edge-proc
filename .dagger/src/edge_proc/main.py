@@ -33,12 +33,16 @@ SOURCE_EXCLUDES: Final = [
     "**/__pycache__",
     "dist",
 ]
+#: pip-audit and its own dependencies resolve from the exported lock (the shared audit
+#: writes it to /work/requirements.txt), so the audited tool tracks uv.lock with no copy.
 OSV_AUDIT_COMMAND: Final = (
     "uv",
     "tool",
     "run",
+    "--constraints",
+    "/work/requirements.txt",
     "--from",
-    "pip-audit==2.10.1",
+    "pip-audit",
     "pip-audit",
     "-r",
     "/work/requirements.txt",
@@ -131,20 +135,6 @@ class EdgeProc:
         await self._require_candidate_tag(candidate, tag)
         return await self._reverified_artifact(candidate, tag, lineage)
     # fmt: on
-
-    @function(cache="never")  # type: ignore[call-overload,untyped-decorator]  # SDK stub gap
-    async def repin_dependabot(
-        self, github_token: dagger.Secret, pr_number: int, repository: str
-    ) -> str:
-        """Copy uv.lock tool versions into the literals of one Dependabot uv PR."""
-        repository = _allowed_repository(repository)
-        tool = self.source.file("scripts/repin_locked_tools.py")
-        command = ["python", "/opt/repin/repin_locked_tools.py", "run"]
-        command += ["--repository", repository, "--pr", str(pr_number)]
-        container = dag.container().from_(PYTHON_IMAGE)
-        container = container.with_file("/opt/repin/repin_locked_tools.py", tool)
-        container = container.with_secret_variable("GH_TOKEN", github_token)
-        return await container.with_user("65532:65532").with_exec(command).stdout()
 
     @function
     async def verify_candidate(

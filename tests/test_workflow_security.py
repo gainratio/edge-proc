@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import shutil
 import subprocess
@@ -19,6 +20,10 @@ CHECKOUT_ACTION = "actions/checkout"
 UPLOAD_ACTION = "actions/upload-artifact"
 DOWNLOAD_ACTION = "actions/download-artifact"
 PUBLISH_ACTION = "pypa/gh-action-pypi-publish"
+#: Every Dagger step runs the engine dagger.json declares; read it, never copy it.
+DAGGER_VERSION = json.loads((ROOT / "dagger.json").read_text(encoding="utf-8"))[
+    "engineVersion"
+].removeprefix("v")
 
 
 def _mapping(value: object) -> dict[str, object]:
@@ -68,7 +73,7 @@ def _assert_thin_dagger(job: Mapping[str, object], args: str) -> None:
     invocation = _mapping(steps[1].get("with"))
     assert checkout.get("fetch-depth") == 0
     assert checkout.get("persist-credentials") is False
-    assert invocation == {"version": "0.21.8", "verb": "call", "args": args}
+    assert invocation == {"version": DAGGER_VERSION, "verb": "call", "args": args}
 
 
 def test_should_pin_every_external_action_in_yml_and_yaml() -> None:
@@ -196,7 +201,7 @@ def test_should_call_the_release_graph_with_only_quoted_environment_values() -> 
         "GITHUB_TOKEN": "${{ github.token }}",
     }
     invocation = _mapping(release.get("with"))
-    assert invocation == {"version": "0.21.8", "verb": "call", "args": RELEASE_ARGS}
+    assert invocation == {"version": DAGGER_VERSION, "verb": "call", "args": RELEASE_ARGS}
     assert "--workflow-run-id" not in RELEASE_ARGS
     assert "--run-attempt" not in RELEASE_ARGS
 
@@ -295,7 +300,7 @@ def test_should_prove_the_candidate_lineage_in_dagger_before_touching_any_artifa
         "HEAD_SHA": "${{ github.event.workflow_run.head_sha }}",
     }
     assert LINEAGE_MODULE.fullmatch(str(invocation.pop("module", "")))
-    assert invocation == {"version": "0.21.8", "verb": "call", "args": LINEAGE_ARGS}
+    assert invocation == {"version": DAGGER_VERSION, "verb": "call", "args": LINEAGE_ARGS}
 
 
 def test_should_paste_no_expression_into_any_publisher_dagger_input() -> None:
@@ -319,13 +324,6 @@ def test_should_delete_superseded_ci_ingress(workflow: str) -> None:
     assert not (WORKFLOWS / workflow).exists()
 
 
-REPIN_GUARD = (
-    "github.event.pull_request.user.login == 'dependabot[bot]' && "
-    "github.event.pull_request.head.repo.full_name == github.repository && "
-    "startsWith(github.head_ref, 'dependabot/uv/')"
-)
-
-
 def test_should_trigger_ci_only_on_push_and_pull_request() -> None:
     # Given
     triggers = _mapping(_workflow("dagger.yml").get("on"))
@@ -333,48 +331,3 @@ def test_should_trigger_ci_only_on_push_and_pull_request() -> None:
     # When / Then: a dispatched run is not a pull-request check, so it cannot satisfy
     # the required "Dagger" check (observed on hseshadr/assay#101).
     assert set(triggers) == {"push", "pull_request"}
-
-
-REPIN_ARGS = (
-    'repin-dependabot --github-token=env:GH_TOKEN --pr-number="$PR_NUMBER" '
-    '--repository="$GITHUB_REPOSITORY"'
-)
-
-
-def test_should_repin_only_same_repository_dependabot_uv_prs_through_dagger() -> None:
-    # Given
-    document = _workflow("dependabot-repin.yml")
-    job = _job(document, "repin")
-    steps = _steps(job)
-
-    # When
-    checkout = _mapping(steps[0].get("with"))
-    repin = steps[-1]
-
-    # Then: the fleet policy's ingress shape (checkout then Dagger, no run step), with
-    # the base commit's module and tool doing the work so no pull-request code runs.
-    assert set(_mapping(document.get("on"))) == {"pull_request"}
-    assert document.get("permissions") == {}
-    assert list(_mapping(document.get("jobs"))) == ["repin"]
-    assert str(job.get("if")).strip() == REPIN_GUARD
-    assert job.get("permissions") == {"contents": "write", "actions": "write"}
-    assert [_action(step) for step in steps] == [CHECKOUT_ACTION, DAGGER_ACTION]
-    assert not [step for step in steps if "run" in step]
-    assert checkout == {
-        "ref": "${{ github.event.pull_request.base.sha }}",
-        "persist-credentials": False,
-    }
-    assert _mapping(repin.get("env")) == {
-        "GH_TOKEN": "${{ github.token }}",
-        "PR_NUMBER": "${{ github.event.pull_request.number }}",
-    }
-    assert _mapping(repin.get("with")) == {"version": "0.21.8", "verb": "call", "args": REPIN_ARGS}
-
-
-def test_should_expose_the_repin_graph_with_a_typed_token() -> None:
-    # Given
-    module = (ROOT / ".dagger/src/edge_proc/main.py").read_text(encoding="utf-8")
-
-    # Then
-    assert "async def repin_dependabot(" in module
-    assert "github_token: dagger.Secret, pr_number: int" in module

@@ -282,8 +282,14 @@ def test_should_query_osv_for_non_pypi_locked_versions(
     # When
     edge.dependency_audit(COMMIT_SHA, REPOSITORY)
 
-    # Then
+    # Then: pip-audit and its own dependencies resolve from the exported uv.lock, so the
+    # audited tool version follows the lock with no copied version literal to drift.
     assert package.audit_commands == [list(dagger_module.OSV_AUDIT_COMMAND)]
+    command = package.audit_commands[0]
+    assert command[:6] == ["uv", "tool", "run", "--constraints", "/work/requirements.txt", "--from"]
+    assert command[6:8] == ["pip-audit", "pip-audit"]
+    module = (ROOT / ".dagger/src/edge_proc/main.py").read_text(encoding="utf-8")
+    assert "pip-audit==" not in module
 
 
 def test_should_stop_before_product_or_audit_when_shared_guard_rejects(
@@ -421,7 +427,6 @@ REFUSED = (
         "security",
         "dependency_audit",
         "release_candidate",
-        "repin_dependabot",
         "verify_candidate",
         "_run_ci",
     ],
@@ -485,11 +490,10 @@ def _refused_entrypoints(edge: EdgeProc, repository: str) -> dict[str, object]:
         "verify": lambda: asyncio.run(
             edge.verify_candidate(envelope, COMMIT_SHA, "6100", 2, repository)
         ),
-        "repin": lambda: asyncio.run(edge.repin_dependabot(token, 7, repository)),
     }
 
 
-@pytest.mark.parametrize("entrypoint", ["ci", "security", "audit", "release", "verify", "repin"])
+@pytest.mark.parametrize("entrypoint", ["ci", "security", "audit", "release", "verify"])
 @pytest.mark.parametrize("repository", REFUSED)
 def test_should_refuse_any_other_repository_before_any_shared_call(
     monkeypatch: pytest.MonkeyPatch, repository: str, entrypoint: str

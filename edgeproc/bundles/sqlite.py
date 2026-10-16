@@ -28,14 +28,18 @@ def canonicalize_sqlite_bytes(data: bytes) -> bytes:
     """Validate and ``VACUUM`` a serialized SQLite database into canonical 4096-byte pages.
 
     Refuses non-SQLite payloads and databases that fail ``PRAGMA integrity_check(10)``
-    before rewriting. Returns the compacted byte image ready for :func:`build_bundle`.
+    before rewriting, and zeroes volatile header counters (bytes 24..28 and 92..96) so
+    identical table contents produce byte-identical images ready for :func:`build_bundle`.
     """
     _require_sqlite_header(data)
     with tempfile.TemporaryDirectory(prefix="edgeproc-sqlite-") as tmp_dir:
         db_path = Path(tmp_dir) / "canonical.sqlite3"
         db_path.write_bytes(data)
         _vacuum_in_place(db_path)
-        return db_path.read_bytes()
+        raw = bytearray(db_path.read_bytes())
+        raw[24:28] = b"\x00\x00\x00\x00"
+        raw[92:96] = b"\x00\x00\x00\x00"
+        return bytes(raw)
 
 
 def canonicalize_sqlite(path: Path) -> bytes:

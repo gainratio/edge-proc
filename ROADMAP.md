@@ -5,14 +5,15 @@ direction. It's grounded in the [README](README.md) and [CHANGELOG](CHANGELOG.md
 marked *roadmap* are kept as Protocol seams, not yet built. Nothing here is a promise of a
 date.
 
-## Shipped (v0.5.0)
+## Shipped (v0.5.1)
 
 - **Deterministic router** over pluggable runtimes — no LLM in the routing path.
 - **LocalVec runtime** (`[localvec]`): FAISS-backed `EMBED` / `SEARCH` / `RANK` with hybrid
   BM25 + vector RRF fusion.
 - **Signed bundle / sync substrate** (`[bundles]`): content-defined chunking (GearCDC), a
   content-addressed CAS with zstd + atomic promote + GC, ed25519-signed version pointers,
-  and fail-closed verification of every fetch.
+  fail-closed verification of every fetch, and automatic SQLite canonicalization (`page_size=4096`,
+  `journal_mode=DELETE`, `VACUUM`, zeroed header counters) inside `build_bundle`.
 - **CLI** (`edgeproc`): `keygen` → `publish` → `sync` → `route`, all verifying against a
   pinned trust-root pubkey.
 - **PyPI distribution** (`edge-proc`): wheels and source archives published through GitHub

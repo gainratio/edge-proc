@@ -190,7 +190,7 @@ pip install "edge-proc[localvec]"        # + on-device search (FAISS and PyTorch
 pip install "edge-proc[localvec,bundles]"
 ```
 
-This README documents EdgeProc 0.5.0. It needs Python 3.13 or newer and installs
+This README documents EdgeProc 0.5.1. It needs Python 3.13 or newer and installs
 `edgeproc-core>=0.4.3` from PyPI. Release notes are in the [CHANGELOG](CHANGELOG.md).
 
 ## Develop

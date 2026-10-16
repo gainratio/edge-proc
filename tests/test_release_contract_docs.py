@@ -13,7 +13,7 @@ sys.path.insert(0, str(ROOT_FOR_IMPORT / "benchmarks"))
 from benchmark import BUDGETS  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-RELEASE_VERSION = "0.5.0"
+RELEASE_VERSION = "0.5.1"
 #: The first edgeproc-core release with Problem Details hardening; pinned as a literal.
 CORE_FLOOR = "0.4.3"
 

@@ -4,6 +4,28 @@ All notable changes to **edge-proc**. Newest first; we follow [SemVer](https://s
 
 ## [Unreleased]
 
+## [0.5.1] — 2026-10-16
+
+This patch release adds deterministic SQLite canonicalization (`edgeproc.bundles.sqlite`)
+and wires it into `build_bundle` so `.sqlite` / `.sqlite3` / `.db` artifacts are compacted
+to 4096-byte pages with zero freelist slack and zeroed volatile header counters before
+Gear-CDC chunking.
+
+### Upgrading
+
+- **Nothing to change for existing single-key deployments.** A raw 32-byte `public.key`
+  and `edgeproc-core>=0.4.3` continue to work unchanged.
+
+### Added
+
+- **`edgeproc.bundles.sqlite` (`canonicalize_sqlite`, `canonicalize_sqlite_bytes`,
+  `is_sqlite_bytes`) and automatic canonicalization in `build_bundle`.** Any SQLite
+  file passed to `build_bundle` is checked with `PRAGMA integrity_check(10)`, compacted
+  with `PRAGMA journal_mode = DELETE; PRAGMA page_size = 4096; VACUUM;`, and has its
+  volatile header change counters (bytes `24..28` and `92..96`) zeroed before hashing and
+  Gear-CDC chunking. Non-SQLite or corrupt files carrying `.sqlite`, `.sqlite3`, or `.db`
+  suffixes fail closed with `ValueError`.
+
 ### Documentation
 
 - **The README is rewritten in plain English.** It now opens with what EdgeProc is and a

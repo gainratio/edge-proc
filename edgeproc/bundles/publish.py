@@ -30,11 +30,14 @@ from edgeproc.bundles.manifest import (
     manifest_digest,
     pointer_signing_bytes,
 )
+from edgeproc.bundles.sqlite import canonicalize_sqlite_bytes, is_sqlite_bytes
 
 if TYPE_CHECKING:
     from edgeproc.bundles.cas import FilesystemCacheStore
     from edgeproc.bundles.chunking import GearCDC
     from edgeproc.bundles.signing import Signer
+
+_SQLITE_SUFFIXES: tuple[str, ...] = (".sqlite", ".sqlite3", ".db")
 
 
 def build_bundle(
@@ -113,6 +116,8 @@ def _file_entry(
     path: str, plaintext: bytes, chunker: GearCDC, store: FilesystemCacheStore
 ) -> FileEntry:
     """Chunk one file, store each chunk, and record its ordered chunk refs."""
+    if path.endswith(_SQLITE_SUFFIXES) or is_sqlite_bytes(plaintext):
+        plaintext = canonicalize_sqlite_bytes(plaintext)
     refs = [ChunkRef(hash=store.put_chunk(c), size=len(c)) for c in chunker.chunk(plaintext)]
     return FileEntry(
         path=path,

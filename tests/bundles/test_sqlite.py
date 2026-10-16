@@ -128,8 +128,9 @@ def test_canonicalize_sqlite_refuses_corrupt_btree_and_failed_integrity_check(
 def test_canonical_sqlite_update_reuses_majority_of_gear_cdc_chunks(tmp_path: Path) -> None:
     v1_raw = _build_sample_db(tmp_path / "v1.sqlite3", rows=3_000)
     v2_raw = _build_sample_db(tmp_path / "v2.sqlite3", rows=3_000, updated_row=1_500)
-    v1_bytes = canonicalize_sqlite_bytes(v1_raw)
-    v2_bytes = canonicalize_sqlite_bytes(v2_raw)
+    v2_expected = canonicalize_sqlite_bytes(v2_raw)
+    assert v2_expected[24:28] == b"\x00\x00\x00\x00"
+    assert v2_expected[92:96] == b"\x00\x00\x00\x00"
 
     private, public = generate_keypair()
     signer = Ed25519Signer(private)
@@ -137,8 +138,20 @@ def test_canonical_sqlite_update_reuses_majority_of_gear_cdc_chunks(tmp_path: Pa
     origin = tmp_path / "origin"
     cache = FilesystemCacheStore(tmp_path / "cache")
 
+    with pytest.raises(ValueError, match="not a SQLite format 3"):
+        build_bundle(
+            files={"corrupt.sqlite": b"not-a-sqlite-file"},
+            store=FilesystemCacheStore(origin),
+            chunker=GearCDC(),
+            signer=signer,
+            bundle_id="catalog",
+            version="0.0.1",
+        )
+
+    # Pass raw, un-vacuumed SQLite bytes directly to build_bundle; _file_entry
+    # auto-canonicalizes them before hashing and Gear-CDC chunking.
     build_bundle(
-        files={"catalog.sqlite3": v1_bytes},
+        files={"catalog.sqlite3": v1_raw},
         store=FilesystemCacheStore(origin),
         chunker=GearCDC(),
         signer=signer,
@@ -155,7 +168,7 @@ def test_canonical_sqlite_update_reuses_majority_of_gear_cdc_chunks(tmp_path: Pa
     assert first.chunks_reused == 0
 
     pointer_v2 = build_bundle(
-        files={"catalog.sqlite3": v2_bytes},
+        files={"catalog.sqlite3": v2_raw},
         store=FilesystemCacheStore(origin),
         chunker=GearCDC(),
         signer=signer,
@@ -169,9 +182,9 @@ def test_canonical_sqlite_update_reuses_majority_of_gear_cdc_chunks(tmp_path: Pa
         verifier=verifier,
     )
     assert second.chunks_reused > second.chunks_fetched
-    assert second.bytes_fetched < len(v2_bytes) // 2
+    assert second.bytes_fetched < len(v2_expected) // 2
 
     manifest_v2 = IndexManifest.model_validate_json(
         (origin / "manifest" / pointer_v2.manifest_hash).read_bytes()
     )
-    assert materialize_file(cache, manifest_v2, "catalog.sqlite3") == v2_bytes
+    assert materialize_file(cache, manifest_v2, "catalog.sqlite3") == v2_expected

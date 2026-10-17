@@ -133,8 +133,10 @@ def test_jargon_check_would_catch_a_banned_word() -> None:
 
 def test_readme_explains_how_the_related_projects_fit() -> None:
     fit = _section("## How it fits with the related projects")
-    for name in ("edgeproc-core", "@edgeproc/browser", "privacy-core"):
+    for name in ("edgeproc-core", "@gainratio/browser", "@edgeproc/browser", "privacy-core"):
         assert name in fit, name
+    assert "https://github.com/gainratio/edgeproc-browser" in fit
+    assert "github.com/hseshadr/" not in README
 
 
 def test_readme_links_the_interactive_architecture_map() -> None:

@@ -128,6 +128,11 @@ against the public key the device was given, downloads only the pieces it is mis
 checks each one. Only when every check passes does the new version go live; otherwise the
 device keeps the last good version.
 
+If you publish a SQLite database (`.sqlite`, `.sqlite3`, or `.db`), `edgeproc publish` first
+checks it, compacts it onto 4 KB pages, and zeroes the header counters that SQLite changes on
+every write. That way, changing one row in a 10 MB SQLite catalog changes only the affected
+piece instead of shifting the whole file.
+
 For search, EdgeProc turns text into vectors with a small model and looks them up in a FAISS
 index, optionally mixed with keyword search. Ship the model inside the same signed release
 and the device never needs to download it. Without a local model, search refuses to run
@@ -140,13 +145,15 @@ rather than fetch one.
   for vector search indexes, which EdgeProc's FAISS index implements, and the stable error
   codes, like `bundle.integrity_failed`. It installs automatically with EdgeProc. You would
   only use it on its own to keep each customer's results apart in a shared search index.
-- **[@edgeproc/browser](https://github.com/hseshadr/edgeproc-browser)** (TypeScript, for web
-  pages) does the checking half of EdgeProc inside a browser tab. It reads the same signed
-  format that `edgeproc publish` writes, so you can publish with this library and load the
-  data in a web page.
+- **[@gainratio/browser](https://github.com/gainratio/edgeproc-browser)** (TypeScript, for web
+  pages; previously `@edgeproc/browser`) does the checking half of EdgeProc inside a browser
+  tab. It reads the same signed format that `edgeproc publish` writes, so you can publish a
+  folder or a `.sqlite` database with this library and load it in a web page.
 - **[edge-reco](https://github.com/gainratio/edge-reco)** is a demo online store
   ([edge-reco.com](https://edge-reco.com)) that runs product search in the shopper's
-  browser. It uses these libraries.
+  browser, and **[aml-filter](https://github.com/gainratio/aml-filter)**
+  ([aml-filter.com](https://aml-filter.com)) screens sanctions lists in the browser. Both
+  ship their data as a signed `.sqlite` bundle with these libraries.
 - **[privacy-core](https://github.com/gainratio/privacy-core)** (published on npm as
   `@edgeproc/privacy-core`) is a separate project despite the shared name. It hides card
   numbers and similar IDs from AI prompts in the browser, and does not use EdgeProc.

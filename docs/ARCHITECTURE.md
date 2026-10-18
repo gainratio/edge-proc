@@ -165,7 +165,7 @@ filesystem; the contract is identical and only the transport changes.
   [below](#the-typed-result-and-the-taskbudget-model)).
 - **Verify a release:** PyPI releases are published from CI with
   [PEP 740](https://peps.python.org/pep-0740/) provenance. Check a wheel with
-  `pip install pypi-attestations && pypi-attestations verify pypi --repository https://github.com/hseshadr/edge-proc pypi:edge_proc-0.5.0-py3-none-any.whl`.
+  `pip install pypi-attestations && pypi-attestations verify pypi --repository https://github.com/gainratio/edge-proc pypi:edge_proc-0.5.1-py3-none-any.whl`.
   The release procedure is in [docs/OPERATIONS.md](OPERATIONS.md#release-evidence).
 
 See [SECURITY.md](../SECURITY.md) for reporting a vulnerability. The threat model, recovery

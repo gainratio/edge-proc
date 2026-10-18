@@ -137,6 +137,8 @@ def test_readme_explains_how_the_related_projects_fit() -> None:
         assert name in fit, name
     assert "https://github.com/gainratio/edgeproc-browser" in fit
     assert "github.com/hseshadr/" not in README
+    for consumer in ("edge-reco", "aml-filter"):
+        assert consumer not in fit, f"README related-projects section names consumer {consumer!r}"
 
 
 def test_readme_links_the_interactive_architecture_map() -> None:

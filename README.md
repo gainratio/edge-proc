@@ -109,7 +109,7 @@ Python 3.13 or newer.
    code in square brackets is a stable error code a script can check. Set
    `EDGEPROC_ERROR_FORMAT=json` to get it as JSON.
 
-This is real output from `edge-proc` 0.5.0, installed from PyPI on 2026-09-25.
+This is real output from `edge-proc` 0.5.1, installed from PyPI on 2026-09-25.
 
 To see on-device search as well, clone the repo and run `bash examples/run_loop.sh`. It
 builds a search index over a 15-product catalog, ships it together with the search model,
@@ -148,15 +148,12 @@ rather than fetch one.
 - **[@gainratio/browser](https://github.com/gainratio/edgeproc-browser)** (TypeScript, for web
   pages; previously `@edgeproc/browser`) does the checking half of EdgeProc inside a browser
   tab. It reads the same signed format that `edgeproc publish` writes, so you can publish a
-  folder or a `.sqlite` database with this library and load it in a web page.
-- **[edge-reco](https://github.com/gainratio/edge-reco)** is a demo online store
-  ([edge-reco.com](https://edge-reco.com)) that runs product search in the shopper's
-  browser, and **[aml-filter](https://github.com/gainratio/aml-filter)**
-  ([aml-filter.com](https://aml-filter.com)) screens sanctions lists in the browser. Both
-  ship their data as a signed `.sqlite` bundle with these libraries.
+  folder or a `.sqlite` database with this library and load it in a web page (for example, an
+  offline product catalog or a local reference database).
 - **[privacy-core](https://github.com/gainratio/privacy-core)** (published on npm as
-  `@edgeproc/privacy-core`) is a separate project despite the shared name. It hides card
-  numbers and similar IDs from AI prompts in the browser, and does not use EdgeProc.
+  `@gainratio/privacy-core`; previously `@edgeproc/privacy-core`) is a separate project despite
+  the old shared scope. It hides card numbers and similar IDs from AI prompts in the browser,
+  and does not use EdgeProc.
 
 ## What it does not do
 

@@ -26,7 +26,7 @@ date.
   keyring` maintains the file; stamping is opt-in at the publisher so older consumers are
   unaffected. The `sequence` rollback floor is unchanged. Revocation is distributed by
   updating the consumer's pinned keyring — there is no remotely fetched, signed revocation
-  list. Shared cross-runtime vectors pin the format with `@edgeproc/browser`. Runbook:
+  list. Shared cross-runtime vectors pin the format with `@gainratio/browser`. Runbook:
   [docs/OPERATIONS.md](docs/OPERATIONS.md#key-rotation-and-compromised-key-runbook).
 
 ## Near-term

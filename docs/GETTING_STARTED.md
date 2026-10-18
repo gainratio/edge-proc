@@ -166,7 +166,7 @@ smallest change, then run the full check.
 3. Push and open a pull request. The [template](../.github/PULL_REQUEST_TEMPLATE.md) asks what
    changed and why.
 4. CI runs one job, `Dagger`, which runs `dagger call ci`: the full check above, plus the real
-   example, the benchmark, a dependency audit, a secret scan over the whole Git history, and
+   example, the benchmark, a dependency audit, a secret scan over incoming changes, and
    workflow checks. It must be green before merge.
 
 Reviewers look for:

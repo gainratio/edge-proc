@@ -160,7 +160,7 @@ unstamped output is byte-identical to earlier releases. A consumer older than th
 release rejects a pointer that carries either field (its pointer model forbids unknown
 fields): the sync fails and nothing is promoted, but it cannot update until upgraded.
 
-1. Upgrade every consumer (Python hosts and `@edgeproc/browser` apps) to a keyring-aware
+1. Upgrade every consumer (Python hosts and `@gainratio/browser` apps) to a keyring-aware
    release. Their existing raw `public.key` keeps working unchanged.
 2. Optionally move consumers from `public.key` to a keyring file (`edgeproc keyring init
    keys/public.key --out keyring.json`); the ring of one behaves identically.

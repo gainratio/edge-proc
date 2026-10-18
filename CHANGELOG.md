@@ -4,6 +4,10 @@ All notable changes to **edge-proc**. Newest first; we follow [SemVer](https://s
 
 ## [Unreleased]
 
+### Documentation
+
+- Align README, architecture, operations, roadmap, and getting-started docs with `v0.5.1`, `@gainratio/browser`, and the `gainratio` repository identity.
+
 ## [0.5.1] — 2026-10-16
 
 This patch release adds deterministic SQLite canonicalization (`edgeproc.bundles.sqlite`)

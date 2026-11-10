@@ -10,6 +10,20 @@ readme = "README.md"
 requires-python = ">=3.13"
 license = { text = "MIT" }
 authors = [{ name = "Harish Seshadri", email = "harish.seshadri@gmail.com" }]
+keywords = [
+    "local-first",
+    "edge-ai",
+    "signed-bundles",
+    "ed25519",
+    "content-addressed",
+    "fastcdc",
+    "delta-sync",
+    "hybrid-search",
+    "bm25",
+    "faiss",
+    "reciprocal-rank-fusion",
+    "offline-search",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -72,6 +86,7 @@ edgeproc = "edgeproc.cli:app"
 
 [project.urls]
 Homepage = "https://github.com/gainratio/edge-proc"
+Documentation = "https://github.com/gainratio/edge-proc#readme"
 Repository = "https://github.com/gainratio/edge-proc"
 Issues = "https://github.com/gainratio/edge-proc/issues"
 

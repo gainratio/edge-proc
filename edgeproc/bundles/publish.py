@@ -25,11 +25,13 @@ from edgeproc.bundles.manifest import (
     ChunkRef,
     FileEntry,
     IndexManifest,
+    PatchRef,
     VersionPointer,
     canonical_bytes,
     manifest_digest,
     pointer_signing_bytes,
 )
+from edgeproc.bundles.patching import make_patch_ref
 from edgeproc.bundles.sqlite import canonicalize_sqlite_bytes, is_sqlite_bytes
 
 if TYPE_CHECKING:
@@ -53,16 +55,17 @@ def build_bundle(
     bind_identity: bool = False,
     key_id: str | None = None,
     expires_at: int | None = None,
+    previous_files: Mapping[str, bytes] | None = None,
 ) -> VersionPointer:
     """Chunk + store ``files``, sign the manifest pointer, lay out the flat origin.
 
     ``bind_identity`` (opt-in) stamps ``bundle_id`` into the SIGNED pointer so it cannot be
     cross-applied to another bundle; ``channel``/``sequence`` bind a release channel and a
     monotonic freshness counter. ``key_id`` names the signing key for a keyring consumer and
-    ``expires_at`` (Unix seconds) bounds how long the pointer is accepted. All are excluded
-    from the signed bytes when unset, so the default call produces the byte-identical legacy
-    pointer and no consumer is affected. Stamp ``key_id``/``expires_at`` only once every
-    consumer runs a version that knows them: an older consumer refuses unknown fields.
+    ``expires_at`` (Unix seconds) bounds how long the pointer is accepted. ``previous_files``
+    (opt-in) prebuilds CI/CD ``zstd --patch-from`` static delta patches under ``patch/<sha256>``
+    and records signed ``PatchRef`` entries on changed files. All are excluded from the signed
+    bytes when unset, so the default call produces the byte-identical legacy pointer.
     """
     with store.mutation():
         return _build_bundle_locked(
@@ -77,6 +80,7 @@ def build_bundle(
             bind_identity=bind_identity,
             key_id=key_id,
             expires_at=expires_at,
+            previous_files=previous_files,
         )
 
 
@@ -93,9 +97,13 @@ def _build_bundle_locked(
     bind_identity: bool,
     key_id: str | None,
     expires_at: int | None,
+    previous_files: Mapping[str, bytes] | None,
 ) -> VersionPointer:
     """Build and publish one origin snapshot while holding its mutation lock."""
-    entries = [_file_entry(path, data, chunker, store) for path, data in files.items()]
+    entries = [
+        _file_entry(path, data, chunker, store, (previous_files or {}).get(path))
+        for path, data in files.items()
+    ]
     manifest = IndexManifest(bundle_id=bundle_id, version=version, files=entries)
     store.put_manifest(canonical_bytes(manifest))
     pointer = _sign_pointer(
@@ -112,19 +120,50 @@ def _build_bundle_locked(
     return pointer
 
 
+def _normalize_plaintext(path: str, plaintext: bytes) -> bytes:
+    if path.endswith(_SQLITE_SUFFIXES) or is_sqlite_bytes(plaintext):
+        return canonicalize_sqlite_bytes(plaintext)
+    return plaintext
+
+
+def _build_patches(
+    path: str,
+    plaintext: bytes,
+    previous_plaintext: bytes | None,
+    store: FilesystemCacheStore,
+) -> list[PatchRef] | None:
+    if previous_plaintext is None:
+        return None
+    base_bytes = _normalize_plaintext(path, previous_plaintext)
+    built = make_patch_ref(base_bytes, plaintext)
+    if built is None:
+        return None
+    ref, patch_bytes = built
+    (store.root / "patch").mkdir(parents=True, exist_ok=True)
+    _require_flat_directory(store.root / "patch")
+    store.write_atomic(f"patch/{ref.patch_sha256}", patch_bytes)
+    _fsync_directory(store.root / "patch")
+    return [ref]
+
+
 def _file_entry(
-    path: str, plaintext: bytes, chunker: GearCDC, store: FilesystemCacheStore
+    path: str,
+    plaintext: bytes,
+    chunker: GearCDC,
+    store: FilesystemCacheStore,
+    previous_plaintext: bytes | None = None,
 ) -> FileEntry:
     """Chunk one file, store each chunk, and record its ordered chunk refs."""
-    if path.endswith(_SQLITE_SUFFIXES) or is_sqlite_bytes(plaintext):
-        plaintext = canonicalize_sqlite_bytes(plaintext)
+    plaintext = _normalize_plaintext(path, plaintext)
     refs = [ChunkRef(hash=store.put_chunk(c), size=len(c)) for c in chunker.chunk(plaintext)]
+    patches = _build_patches(path, plaintext, previous_plaintext, store)
     return FileEntry(
         path=path,
         file_type=None,
         size=len(plaintext),
         file_sha256=hashlib.sha256(plaintext).hexdigest(),
         chunks=refs,
+        patches=patches,
     )
 
 

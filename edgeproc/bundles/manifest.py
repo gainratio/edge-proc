@@ -86,6 +86,16 @@ class ChunkRef(BaseModel):
     size: int  # uncompressed chunk length in bytes
 
 
+class PatchRef(BaseModel):
+    """Prebuilt zstd ``--patch-from`` delta from ``base_sha256`` to this ``FileEntry``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    base_sha256: Sha256Hex
+    patch_sha256: Sha256Hex
+    patch_size: int = Field(gt=0)
+
+
 class FileEntry(BaseModel):
     """A file as an ordered list of chunks (order = reassembly order)."""
 
@@ -96,6 +106,15 @@ class FileEntry(BaseModel):
     size: int  # total uncompressed file length
     file_sha256: Sha256Hex  # bare hex sha256 of the whole reassembled file
     chunks: list[ChunkRef]
+    patches: list[PatchRef] | None = None
+
+    @model_serializer(mode="wrap")
+    def _omit_unset_patches(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Omit ``patches`` when unset so legacy manifest canonical bytes never change."""
+        data = handler(self)
+        if "patches" in data and not data["patches"]:
+            del data["patches"]
+        return data
 
     @field_validator("path")
     @classmethod

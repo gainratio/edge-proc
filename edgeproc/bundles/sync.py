@@ -27,6 +27,7 @@ from edgeproc.bundles.manifest import (
     is_expired,
     pointer_signing_bytes,
 )
+from edgeproc.bundles.patching import active_base_entries, try_apply_entry_patch
 from edgeproc.bundles.signing import PointerVerifier, Verifier
 from edgeproc.core.settings import EdgeProcSettings
 
@@ -274,6 +275,32 @@ def sync_index(
         )
 
 
+def _apply_patches(
+    base_url: str,
+    manifest: IndexManifest,
+    adapter: FetchAdapter,
+    store: CacheStore,
+    max_total_bytes: int,
+) -> int:
+    """Apply any matching signed ``zstd --patch-from`` file deltas before chunk diffing."""
+    base_entries = active_base_entries(store)
+    if not base_entries:
+        return 0
+    fetched = 0
+    for entry in manifest.files:
+        used = try_apply_entry_patch(
+            base_url=base_url,
+            entry=entry,
+            base_entries=base_entries,
+            adapter=adapter,
+            store=store,
+            remaining_budget=max_total_bytes - fetched,
+        )
+        if used is not None:
+            fetched += used
+    return fetched
+
+
 def _sync_locked(
     *,
     base_url: str,
@@ -293,8 +320,11 @@ def _sync_locked(
     manifest = _fetch_manifest(base_url, pointer, adapter, store)
     _check_manifest_identity(pointer, manifest)
     _enforce_file_cap(manifest, caps.max_files)
+    patch_bytes = _apply_patches(base_url, manifest, adapter, store, caps.total_bytes)
     diff = _missing_chunks(manifest, store)
-    bytes_fetched = _fetch_missing(base_url, diff.to_fetch, adapter, store, caps.total_bytes)
+    chunk_bytes = _fetch_missing(
+        base_url, diff.to_fetch, adapter, store, caps.total_bytes - patch_bytes
+    )
     _verify_reassembly(manifest, store)
     store.promote(pointer)
     return SyncResult(
@@ -302,7 +332,7 @@ def _sync_locked(
         manifest_hash=pointer.manifest_hash,
         chunks_fetched=len(diff.to_fetch),
         chunks_reused=diff.reused,
-        bytes_fetched=bytes_fetched,
+        bytes_fetched=patch_bytes + chunk_bytes,
     )
 
 

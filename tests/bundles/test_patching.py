@@ -250,3 +250,21 @@ def test_patch_fallback_when_patch_missing_and_fail_closed_when_tampered(
             store=store,
             remaining_budget=1_000_000,
         )
+
+
+def test_multi_megabyte_prefix_dictionary_retains_early_matches() -> None:
+    rng = hashlib.shake_256(b"edgeproc-4mb-shard")
+    base = rng.digest(4 * 1024 * 1024)
+    target_buf = bytearray(base)
+    target_buf[8192 : 8192 + 16384] = hashlib.shake_256(b"mutated-16kb").digest(16384)
+    target = bytes(target_buf)
+
+    patch = build_raw_patch(base, target)
+    assert len(patch) < 24_576
+    restored = apply_raw_patch(
+        base,
+        patch,
+        expected_sha256=hashlib.sha256(target).hexdigest(),
+        expected_size=len(target),
+    )
+    assert restored == target

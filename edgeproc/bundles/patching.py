@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 _PATCH_ZSTD_LEVEL: Final = 6
 _MIN_WINDOW_LOG: Final = 10
 _MAX_WINDOW_LOG: Final = 27
+_MAX_DICT_HASH_LOG: Final = 23
 
 
 def _window_log_for_span(span_bytes: int) -> int:
@@ -37,17 +38,22 @@ def _window_log_for_span(span_bytes: int) -> int:
 
 def build_raw_patch(base_bytes: bytes, target_bytes: bytes) -> bytes:
     """Compress ``target_bytes`` using ``base_bytes`` as a raw-content prefix dictionary."""
-    span = max(len(base_bytes), len(target_bytes))
-    cdict = zstandard.ZstdCompressionDict(base_bytes, dict_type=zstandard.DICT_TYPE_RAWCONTENT)
+    span = len(base_bytes) + len(target_bytes)
+    wlog = _window_log_for_span(span)
+    hlog = min(wlog, _MAX_DICT_HASH_LOG)
     params = zstandard.ZstdCompressionParameters.from_level(
         _PATCH_ZSTD_LEVEL,
-        enable_ldm=1,
-        window_log=_window_log_for_span(span),
+        window_log=wlog,
+        hash_log=hlog,
+        chain_log=hlog,
         write_content_size=1,
         write_checksum=1,
     )
-    compressor = zstandard.ZstdCompressor(compression_params=params, dict_data=cdict)
-    return compressor.compress(target_bytes)
+    cdict = zstandard.ZstdCompressionDict(base_bytes, dict_type=zstandard.DICT_TYPE_RAWCONTENT)
+    cdict.precompute_compress(compression_params=params)
+    return zstandard.ZstdCompressor(compression_params=params, dict_data=cdict).compress(
+        target_bytes
+    )
 
 
 def apply_raw_patch(
